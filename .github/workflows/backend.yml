@@ -1,0 +1,49 @@
+name: CI/CD Backend
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      database:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: symfony_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, iconv, pdo_mysql
+          tools: composer
+
+      - name: Installer les dépendances
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      # - name: Exécuter les tests
+      #   env:
+      #     DATABASE_URL: mysql://root:root@127.0.0.1:3306/symfony_test
+      #   run: php bin/phpunit
+
+      # - name: Déploiement (optionnel)
+      #   if: github.ref == 'refs/heads/main'
+      #   run: |
+      #     ssh user@your-server "cd /path/to/backend && git pull && php bin/console cache:clear"
