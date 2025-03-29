@@ -73,3 +73,5 @@
 /.phpunit.cache/
 ###< phpunit/phpunit ###
 .idea/
+config/jwt/
+/coverage/
