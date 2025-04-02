@@ -33,7 +33,7 @@ class AppFixtures extends Fixture
         // Public
         $publicUser = new User();
         $publicUser->setUsername("public");
-        $publicUser->setRoles(["PUBLIC"]);
+        $publicUser->setRoles(["ROLE_PUBLIC"]);
         $publicUser->setEmail("public@public");
         $publicUser->setPassword($this->userPasswordHasher->hashPassword($publicUser, "public"));
         $manager->persist($publicUser);
@@ -44,7 +44,7 @@ class AppFixtures extends Fixture
             $password = $this->faker->password(2, 6);
             $username = $this->faker->userName();
             $userUser->setUsername($username);
-            $userUser->setRoles(["USER"]);
+            $userUser->setRoles(["ROLE_USER"]);
             $userUser->setEmail($username . "@". $password);
             $userUser->setPassword($this->userPasswordHasher->hashPassword($userUser, $password));
             $manager->persist($userUser);
@@ -53,7 +53,7 @@ class AppFixtures extends Fixture
         // Admins
         $adminUser = new User();
         $adminUser->setUsername("admin");
-        $adminUser->setRoles(["ADMIN"]);
+        $adminUser->setRoles(["ROLE_ADMIN"]);
         $adminUser->setEmail("admin@password");
         $adminUser->setPassword($this->userPasswordHasher->hashPassword($adminUser, "password"));
         $manager->persist($adminUser);

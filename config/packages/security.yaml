@@ -6,27 +6,28 @@ security:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: email
+                property: username
 
     firewalls:
-        main:
-            lazy: true
+        login:
+            #lazy: true
+            pattern: ^/api/login
+            stateless: true
             provider: app_user_provider
             json_login:
                 check_path: /api/login
-                username_path: email  # Indique que l'identifiant est `email`
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
-            logout:
-                path: app_logout
+            #logout:
+             #   path: app_logout
 
         api:
             pattern: ^/api
             stateless: true
-            entry_point: jwt
+            #entry_point: jwt
             jwt: ~
-            refresh_jwt:
-                check_path: /api/token/refresh
+            #refresh_jwt:
+            #    check_path: /api/token/refresh
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }

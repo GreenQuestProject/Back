@@ -21,12 +21,12 @@ nelmio_api_doc:
                                 schema:
                                     type: object
                                     required:
-                                        - email
+                                        - username
                                         - password
                                     properties:
-                                        email:
+                                        username:
                                             type: string
-                                            example: "admin@password"
+                                            example: "admin"
                                         password:
                                             type: string
                                             example: "password"

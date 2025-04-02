@@ -2,9 +2,9 @@ name: CI/CD Backend
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 jobs:
   build:
@@ -15,7 +15,7 @@ jobs:
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: symfony_test
+          MYSQL_DATABASE: greenquest_test
         ports:
           - 3306:3306
         options: >-
@@ -38,10 +38,10 @@ jobs:
       - name: Installer les dépendances
         run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
 
-      # - name: Exécuter les tests
-      #   env:
-      #     DATABASE_URL: mysql://root:root@127.0.0.1:3306/symfony_test
-      #   run: php bin/phpunit
+      - name: Exécuter les tests
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+        run: php bin/phpunit
 
       # - name: Déploiement (optionnel)
       #   if: github.ref == 'refs/heads/main'

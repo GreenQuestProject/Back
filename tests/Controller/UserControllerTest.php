@@ -37,10 +37,10 @@ final class UserControllerTest extends WebTestCase{
         return $user;
     }
 
-    private function getJwtToken(string $email, string $password): string
+    private function getJwtToken(string $username, string $password): string
     {
         $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
-            'email' => $email,
+            'username' => $username,
             'password' => $password
         ]));
 
@@ -50,7 +50,7 @@ final class UserControllerTest extends WebTestCase{
 
     private function deleteUser(User $user): void
     {
-        $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $user->getEmail()]);
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $user->getUsername()]);
 
         $this->entityManager->remove($user);
         $this->entityManager->flush();
@@ -77,7 +77,7 @@ final class UserControllerTest extends WebTestCase{
 
         $this->assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
-        $user = $userRepository->findOneBy(['email' => 'testuser@example.com']);
+        $user = $userRepository->findOneBy(['username' => 'testuser']);
         $this->assertNotNull($user, 'L\'utilisateur a bien été enregistré.');
 
         $this->assertNotEquals('password123', $user->getPassword(), 'Le mot de passe est bien hashé.');
@@ -103,11 +103,24 @@ final class UserControllerTest extends WebTestCase{
         $this->assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
     }
 
+    public function testCreateUserWithNoData(): void
+    {
+        $this->client->request(
+            'POST',
+            '/api/register',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
     public function testUpdateUser(): void
     {
         $user = $this->createUser('old@example.com', 'test');
         $userId = $user->getId();
-        $jwtToken = $this->getJwtToken('old@example.com', 'test');
+        $jwtToken = $this->getJwtToken('old', 'test');
 
         $this->client->request('PUT', "/api/user/$userId", [], [],
             ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
@@ -125,13 +138,50 @@ final class UserControllerTest extends WebTestCase{
         $this->entityManager->flush();
     }
 
+    public function testUserCannotUpdateAnotherUser(): void
+    {
+        $user1 = $this->createUser('userone@example.com', 'password');
+        $user2 = $this->createUser('usertwo@example.com', 'password');
+
+        $jwtToken = $this->getJwtToken('userone', 'password');
+        $this->client->request('PUT', "/api/user/{$user2->getId()}", [], [],
+            ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
+            json_encode(['email' => 'new@example.com'])
+        );
+        $this->assertResponseStatusCodeSame(403);
+
+        $this->deleteUser($user1);
+        $this->deleteUser($user2);
+    }
+
+    public function testAdminCanUpdateAnotherUser(): void
+    {
+        $user = $this->createUser('user@example.com', 'password');
+        $userId = $user->getId();
+        $admin = $this->createUser('admin@example.com', 'password', ['ROLE_ADMIN']);
+
+        $jwtToken = $this->getJwtToken('admin', 'password');
+        $this->client->request('PUT', "/api/user/{$user->getId()}", [], [],
+            ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
+            json_encode(['email' => 'new@example.com'])
+        );
+        $this->assertResponseStatusCodeSame(Response::HTTP_NO_CONTENT);
+
+        $updatedUser = $this->entityManager->getRepository(User::class)->find($userId);
+        $this->assertSame("new@example.com", $updatedUser->getEmail());
+
+        $this->deleteUser($user);
+        $this->deleteUser($admin);
+    }
+
+
     public function testDeleteUserAsAdmin(): void
     {
         $userToDelete = $this->createUser('todelete@example.com', 'test');
         $userToDeleteId = $userToDelete->getId();
 
         $adminUser = $this->createUser('admin@example.com', 'admin', ["ROLE_ADMIN"]);
-        $jwtToken = $this->getJwtToken('admin@example.com', 'admin');
+        $jwtToken = $this->getJwtToken('admin', 'admin');
 
         $this->client->request('DELETE', "/api/user/$userToDeleteId", [],[],
             ['HTTP_Authorization' => "Bearer $jwtToken"]
@@ -151,7 +201,7 @@ final class UserControllerTest extends WebTestCase{
         $userToDeleteId = $userToDelete->getId();
 
         $normalUser = $this->createUser('nonadminuser@example.com', 'test');
-        $jwtToken = $this->getJwtToken('nonadminuser@example.com', 'test');
+        $jwtToken = $this->getJwtToken('nonadminuser', 'test');
 
         $this->client->request(
             'DELETE',
@@ -173,7 +223,7 @@ final class UserControllerTest extends WebTestCase{
     public function testGetAllUsersAsAdmin(): void
     {
         $adminUser = $this->createUser('admin@example.com', 'admin', ["ROLE_ADMIN"]);
-        $jwtToken = $this->getJwtToken('admin@example.com', 'admin');
+        $jwtToken = $this->getJwtToken('admin', 'admin');
 
         // Effectuer la requête GET sur la route '/api/user'
         $this->client->request('GET', '/api/user',
@@ -198,11 +248,28 @@ final class UserControllerTest extends WebTestCase{
         $this->deleteUser($adminUser);
     }
 
+    public function testGetAllUsersAsNonAdmin(): void
+    {
+        $adminUser = $this->createUser('nonadmin@example.com', 'nonadmin');
+        $jwtToken = $this->getJwtToken('nonadmin', 'nonadmin');
+
+        // Effectuer la requête GET sur la route '/api/user'
+        $this->client->request('GET', '/api/user',
+            [],
+            [],
+            ['HTTP_Authorization' => "Bearer $jwtToken"]
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
+
+        $this->deleteUser($adminUser);
+    }
+
     public function testGetUser(): void
     {
         $user = $this->createUser('user@example.com', 'test');
         $userId = $user->getId();
-        $jwtToken = $this->getJwtToken('user@example.com', 'test');
+        $jwtToken = $this->getJwtToken('user', 'test');
 
         // Effectuer la requête GET sur la route '/api/user/{idUser}'
         $this->client->request('GET', "/api/user/$userId",
@@ -231,7 +298,7 @@ final class UserControllerTest extends WebTestCase{
     public function testGetNonExistentUser(): void
     {
         $user = $this->createUser('user@example.com', 'test');
-        $jwtToken = $this->getJwtToken('user@example.com', 'test');
+        $jwtToken = $this->getJwtToken('user', 'test');
 
         // Essayer de récupérer un utilisateur qui n'existe pas
         $this->client->request('GET', '/api/user/99999',
@@ -248,7 +315,7 @@ final class UserControllerTest extends WebTestCase{
     {
         $user = $this->createUser('user@example.com', 'password');
 
-        $jwtToken = $this->getJwtToken('user@example.com', 'password');
+        $jwtToken = $this->getJwtToken('user', 'password');
         $this->client->request('GET', "/api/user/{$user->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(200);
@@ -261,7 +328,7 @@ final class UserControllerTest extends WebTestCase{
         $user1 = $this->createUser('user1@example.com', 'password');
         $user2 = $this->createUser('user2@example.com', 'password');
 
-        $jwtToken = $this->getJwtToken('user1@example.com', 'password');
+        $jwtToken = $this->getJwtToken('user1', 'password');
         $this->client->request('GET', "/api/user/{$user2->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(403);
@@ -275,7 +342,7 @@ final class UserControllerTest extends WebTestCase{
         $user = $this->createUser('user@example.com', 'password');
         $admin = $this->createUser('admin@example.com', 'password', ['ROLE_ADMIN']);
 
-        $jwtToken = $this->getJwtToken('admin@example.com', 'password');
+        $jwtToken = $this->getJwtToken('admin', 'password');
         $this->client->request('GET', "/api/user/{$user->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(200);

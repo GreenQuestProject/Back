@@ -5,7 +5,6 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -15,13 +14,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\PasswordHasher\PasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
-use Symfony\Component\Security\Core\User\UserProviderInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Security\Http\Authentication\AuthenticationUtils;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -50,11 +45,19 @@ final class UserController extends AbstractController{
                            ValidatorInterface $validator, TagAwareCacheInterface $cache,
                            UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
+        $data = json_decode($request->getContent(), true);
+
+        if (!$data) {
+            return new JsonResponse(['error' => 'Missing required fields. Username, email, and password are required.'], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
         $user = $serializer->deserialize($request->getContent(), User::class, "json");
+
         $data = $request->toArray();
+
         $errors = $validator->validate($user);
         if($errors->count() > 0){
-            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+            return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
         }
         $plaintextPassword = $data["password"];
 
@@ -94,6 +97,11 @@ final class UserController extends AbstractController{
     public function update(User $user, Request $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
+        $currentUser = $this->getUser();
+        if (!$currentUser || ($currentUser->getId() !== $user->getId() && !in_array('ROLE_ADMIN', $currentUser->getRoles()))) {
+            return new JsonResponse(['message' => 'Access Denied'], Response::HTTP_FORBIDDEN);
+        }
+
         $updatedUser = $serializer->deserialize($request->getContent(), User::class, "json", [AbstractNormalizer::OBJECT_TO_POPULATE => $user]);
         $entityManager->persist($updatedUser);
         $entityManager->flush();
@@ -141,16 +149,20 @@ final class UserController extends AbstractController{
         )
     )]
     #[Route('/api/user/{idUser}', name: 'user_get', methods: ['GET'])]
-    public function get(#[MapEntity(mapping: ['idUser' => 'id'])] User $user, SerializerInterface $serializer, Security $security): JsonResponse
+    public function get(#[MapEntity(mapping: ['idUser' => 'id'])] ?User $user, SerializerInterface $serializer, Security $security): JsonResponse
     {
+        if (!$user) {
+            return new JsonResponse(['message' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
         $currentUser = $security->getUser();
 
         if (!$currentUser) {
-            return new JsonResponse(['message' => 'Unauthorized'], JsonResponse::HTTP_UNAUTHORIZED);
+            return new JsonResponse(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
         }
 
         if ($currentUser->getId() !== $user->getId() && !in_array('ROLE_ADMIN', $currentUser->getRoles())) {
-            return new JsonResponse(['message' => 'Access Denied'], JsonResponse::HTTP_FORBIDDEN);
+            return new JsonResponse(['message' => 'Access Denied'], Response::HTTP_FORBIDDEN);
         }
 
         $jsonUser = $serializer->serialize($user, 'json', ['groups' => "getAll"]);
@@ -176,11 +188,11 @@ final class UserController extends AbstractController{
         )
     )]
     #[Route('/api/user', name: 'user_getAll', methods: ['GET'])]
-   // #[IsGranted("ROLE_ADMIN")]
+    #[IsGranted("ROLE_ADMIN")]
     public function getAll(UserRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache): JsonResponse
     {
         $idCache = "getAllUser";
-        $cache->invalidateTags(["userCache"]);
+
         $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer) {
             $item->tag("userCache");
             $users = $repository->findAll();
