@@ -35,6 +35,9 @@ jobs:
           extensions: mbstring, xml, ctype, iconv, pdo_mysql
           tools: composer
 
+      - name: Mise à jour des dépendances
+        run: composer update
+
       - name: Installer les dépendances
         run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
 
