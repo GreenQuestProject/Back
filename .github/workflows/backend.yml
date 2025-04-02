@@ -44,7 +44,7 @@ jobs:
       - name: Créer les tables avec Doctrine
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
-        run: php bin/console doctrine:schema:update --force
+        run: php bin/console doctrine:schema:update --force --no-interaction
 
       - name: Exécuter les tests
         env:
