@@ -54,8 +54,8 @@ jobs:
       - name: Reconstruire les clés JWT
         run: |
           mkdir -p config/jwt
-          echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -D > config/jwt/private.pem
-          echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -D > config/jwt/public.pem
+          echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d > config/jwt/private.pem
+          echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d > config/jwt/public.pem
           chmod 600 config/jwt/private.pem config/jwt/public.pem
 
       - name: Exécuter les tests
