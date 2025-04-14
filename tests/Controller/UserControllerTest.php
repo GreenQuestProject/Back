@@ -162,6 +162,7 @@ final class UserControllerTest extends WebTestCase{
         $userId = $user->getId();
         $jwtToken = $this->getJwtToken('old', 'test');
 
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('PUT', "/api/user/$userId", [], [],
             ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
             json_encode(['email' => 'new@example.com'])
@@ -184,6 +185,7 @@ final class UserControllerTest extends WebTestCase{
         $user2 = $this->createUser('usertwo@example.com', 'password');
 
         $jwtToken = $this->getJwtToken('userone', 'password');
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('PUT', "/api/user/{$user2->getId()}", [], [],
             ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
             json_encode(['email' => 'new@example.com'])
@@ -201,6 +203,7 @@ final class UserControllerTest extends WebTestCase{
         $admin = $this->createUser('admin@example.com', 'password', ['ROLE_ADMIN']);
 
         $jwtToken = $this->getJwtToken('admin', 'password');
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('PUT', "/api/user/{$user->getId()}", [], [],
             ['HTTP_AUTHORIZATION' => "Bearer $jwtToken"],
             json_encode(['email' => 'new@example.com'])
@@ -222,7 +225,7 @@ final class UserControllerTest extends WebTestCase{
 
         $adminUser = $this->createUser('admin@example.com', 'admin', ["ROLE_ADMIN"]);
         $jwtToken = $this->getJwtToken('admin', 'admin');
-
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('DELETE', "/api/user/$userToDeleteId", [],[],
             ['HTTP_Authorization' => "Bearer $jwtToken"]
         );
@@ -242,7 +245,7 @@ final class UserControllerTest extends WebTestCase{
 
         $normalUser = $this->createUser('nonadminuser@example.com', 'test');
         $jwtToken = $this->getJwtToken('nonadminuser', 'test');
-
+        $this->assertNotEmpty($jwtToken);
         $this->client->request(
             'DELETE',
             "/api/user/$userToDeleteId",
@@ -264,7 +267,7 @@ final class UserControllerTest extends WebTestCase{
     {
         $adminUser = $this->createUser('admin@example.com', 'admin', ["ROLE_ADMIN"]);
         $jwtToken = $this->getJwtToken('admin', 'admin');
-
+        $this->assertNotEmpty($jwtToken);
         // Effectuer la requête GET sur la route '/api/user'
         $this->client->request('GET', '/api/user',
             [],
@@ -292,7 +295,7 @@ final class UserControllerTest extends WebTestCase{
     {
         $adminUser = $this->createUser('nonadmin@example.com', 'nonadmin');
         $jwtToken = $this->getJwtToken('nonadmin', 'nonadmin');
-
+        $this->assertNotEmpty($jwtToken);
         // Effectuer la requête GET sur la route '/api/user'
         $this->client->request('GET', '/api/user',
             [],
@@ -310,7 +313,7 @@ final class UserControllerTest extends WebTestCase{
         $user = $this->createUser('user@example.com', 'test');
         $userId = $user->getId();
         $jwtToken = $this->getJwtToken('user', 'test');
-
+        $this->assertNotEmpty($jwtToken);
         // Effectuer la requête GET sur la route '/api/user/{idUser}'
         $this->client->request('GET', "/api/user/$userId",
             [],
@@ -339,7 +342,7 @@ final class UserControllerTest extends WebTestCase{
     {
         $user = $this->createUser('user@example.com', 'test');
         $jwtToken = $this->getJwtToken('user', 'test');
-
+        $this->assertNotEmpty($jwtToken);
         // Essayer de récupérer un utilisateur qui n'existe pas
         $this->client->request('GET', '/api/user/99999',
             [],
@@ -356,6 +359,7 @@ final class UserControllerTest extends WebTestCase{
         $user = $this->createUser('user@example.com', 'password');
 
         $jwtToken = $this->getJwtToken('user', 'password');
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('GET', "/api/user/{$user->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(200);
@@ -369,6 +373,7 @@ final class UserControllerTest extends WebTestCase{
         $user2 = $this->createUser('user2@example.com', 'password');
 
         $jwtToken = $this->getJwtToken('user1', 'password');
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('GET', "/api/user/{$user2->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(403);
@@ -383,6 +388,7 @@ final class UserControllerTest extends WebTestCase{
         $admin = $this->createUser('admin@example.com', 'password', ['ROLE_ADMIN']);
 
         $jwtToken = $this->getJwtToken('admin', 'password');
+        $this->assertNotEmpty($jwtToken);
         $this->client->request('GET', "/api/user/{$user->getId()}", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
 
         $this->assertResponseStatusCodeSame(200);
