@@ -15,12 +15,52 @@ final class UserControllerTest extends WebTestCase{
     private EntityManagerInterface $entityManager;
     private UserPasswordHasherInterface $passwordHasher;
     private KernelBrowser $client;
-    protected function setUp(): void
+  /*  protected function setUp(): void
     {
         $this->client = UserControllerTest::createClient();
         $this->entityManager = UserControllerTest::getContainer()->get(EntityManagerInterface::class);
         $this->passwordHasher = UserControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
 
+    }*/
+
+    protected function setUp(): void
+    {
+        //self::bootKernel(); // Lance le kernel Symfony
+        $this->client = UserControllerTest::createClient();
+        $this->entityManager = UserControllerTest::getContainer()->get(EntityManagerInterface::class);
+        $this->passwordHasher = UserControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
+
+        // Nettoyage si besoin (sécurité en cas de test planté précédemment)
+        $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
+
+        // Créer un user
+  /*      $user = (new User())
+            ->setUsername('user')
+            ->setRoles(['ROLE_USER'])
+            ->setPassword('hashed-password');
+        $this->entityManager->persist($user);
+
+        // Créer un admin
+        $admin = (new User())
+            ->setUsername('admin')
+            ->setRoles(['ROLE_ADMIN'])
+            ->setPassword('hashed-password');
+        $this->entityManager->persist($admin);
+  */
+
+        $this->entityManager->flush();
+    }
+
+    protected function tearDown(): void
+    {
+        $users = $this->entityManager->getRepository(User::class)->findAll();
+
+        foreach ($users as $user) {
+            $this->entityManager->remove($user);
+        }
+
+        $this->entityManager->flush();
+        parent::tearDown();
     }
 
     private function createUser(string $email, string $password, array $roles = ['ROLE_USER']): User
