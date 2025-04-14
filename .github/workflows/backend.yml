@@ -53,7 +53,7 @@ jobs:
 
       - name: Exécuter les tests
         env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
         run: vendor/bin/phpunit
 
       # - name: Déploiement (optionnel)
