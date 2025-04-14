@@ -2,9 +2,9 @@ name: CI/CD Backend
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 jobs:
   build:
@@ -15,7 +15,7 @@ jobs:
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: symfony_test
+          MYSQL_DATABASE: greenquest_test
         ports:
           - 3306:3306
         options: >-
@@ -31,17 +31,38 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
+          php-version: '8.3'
           extensions: mbstring, xml, ctype, iconv, pdo_mysql
           tools: composer
+
+      - name: Mise à jour des dépendances
+        run: composer update
 
       - name: Installer les dépendances
         run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
 
-      # - name: Exécuter les tests
-      #   env:
-      #     DATABASE_URL: mysql://root:root@127.0.0.1:3306/symfony_test
-      #   run: php bin/phpunit
+      - name: Supprimer le schéma
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+        run: php bin/console doctrine:schema:drop --force --full-database --no-interaction
+
+      - name: Créer les tables avec Doctrine
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+        run: php bin/console doctrine:schema:update --force --no-interaction
+
+      - name: Reconstruire les clés JWT
+        run: |
+          mkdir -p config/jwt
+          echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d > config/jwt/private.pem
+          echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d > config/jwt/public.pem
+          chmod 600 config/jwt/private.pem config/jwt/public.pem
+
+      - name: Exécuter les tests
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE }}
+        run: vendor/bin/phpunit
 
       # - name: Déploiement (optionnel)
       #   if: github.ref == 'refs/heads/main'
