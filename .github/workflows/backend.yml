@@ -15,7 +15,7 @@ jobs:
         image: mysql:8
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: greenquest
+          MYSQL_DATABASE: greenquest_test
         ports:
           - 3306:3306
         options: >-
@@ -43,17 +43,18 @@ jobs:
 
       - name: Supprimer le schéma
         env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
         run: php bin/console doctrine:schema:drop --force --full-database --no-interaction
 
       - name: Créer les tables avec Doctrine
         env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
         run: php bin/console doctrine:schema:update --force --no-interaction
 
       - name: Exécuter les tests
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          APP_ENV: test
         run: vendor/bin/phpunit
 
       # - name: Déploiement (optionnel)
