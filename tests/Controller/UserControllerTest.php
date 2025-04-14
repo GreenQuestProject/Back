@@ -83,6 +83,7 @@ final class UserControllerTest extends WebTestCase{
             'username' => $username,
             'password' => $password
         ]));
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
 
         $response = json_decode($this->client->getResponse()->getContent(), true);
         return $response['token'] ?? '';
