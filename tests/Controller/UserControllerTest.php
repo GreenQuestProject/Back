@@ -408,4 +408,17 @@ final class UserControllerTest extends WebTestCase{
         $this->assertResponseStatusCodeSame(401);
         $this->deleteUser($user);
     }
+
+    public function testUserCanAccessOwnProfileConnected(): void
+    {
+        $user = $this->createUser('user@example.com', 'password');
+
+        $jwtToken = $this->getJwtToken('user', 'password');
+        $this->assertNotEmpty($jwtToken);
+        $this->client->request('GET', "/api/user/me", [], [], ['HTTP_Authorization' => "Bearer $jwtToken"]);
+
+        $this->assertResponseStatusCodeSame(200);
+        $this->assertJson($this->client->getResponse()->getContent());
+        $this->deleteUser($user);
+    }
 }
