@@ -16,6 +16,27 @@ class ProgressionRepository extends ServiceEntityRepository
         parent::__construct($registry, Progression::class);
     }
 
+    public function findByUserWithFilters($user, ?string $status, ?string $type): array
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->join('p.challenge', 'c')
+            ->where('p.user = :user')
+            ->setParameter('user', $user);
+
+        if ($status) {
+            $qb->andWhere('p.status = :status')
+                ->setParameter('status', $status);
+        }
+
+        if ($type) {
+            $qb->andWhere('c.type = :type')
+                ->setParameter('type', $type);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+
 //    /**
 //     * @return Progression[] Returns an array of Progression objects
 //     */
