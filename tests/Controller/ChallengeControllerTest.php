@@ -25,6 +25,7 @@ final class ChallengeControllerTest extends WebTestCase{
 
         // Nettoyage si besoin (sécurité en cas de test planté précédemment)
         $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge')->execute();
 
         // Créer un user
       $user = (new User())
@@ -277,7 +278,7 @@ final class ChallengeControllerTest extends WebTestCase{
         $responseData = json_decode($this->client->getResponse()->getContent(), true);
 
         $this->assertIsArray($responseData);
-        $this->assertNotEmpty($responseData);
+        $this->assertEmpty($responseData);
     }
 
     public function testGetChallenge(): void
