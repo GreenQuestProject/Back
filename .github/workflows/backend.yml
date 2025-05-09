@@ -125,4 +125,4 @@ jobs:
             cd /var/www/backend
             docker pull kteyssere/greenquest-backend:latest
             docker compose down
-            docker compose up -d --build
+            docker compose up -d --build --remove-orphans
