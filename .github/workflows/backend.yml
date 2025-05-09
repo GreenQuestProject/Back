@@ -89,7 +89,7 @@ jobs:
 
       - name: Exécuter les tests
         env:
-          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
           JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE }}
         run: php vendor/bin/phpunit
 
