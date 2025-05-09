@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     expose:
       - "9000"
+    environment:
+      CORS_ALLOW_ORIGIN: '^http://54\.37\.14\.239$'
     volumes:
       - .:/var/www/html
 
