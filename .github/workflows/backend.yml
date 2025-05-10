@@ -122,7 +122,7 @@ jobs:
           script: |
             export JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-            cd /var/www/backend
+            cd /var/www
             docker pull kteyssere/greenquest-backend:latest
             docker compose down
             docker compose up -d --build --remove-orphans
