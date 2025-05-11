@@ -129,10 +129,22 @@ jobs:
 
       - name: Attendre que greenquest-backend soit prêt
         run: |
-          until docker compose ps -q backend | xargs docker inspect -f '{{.State.Running}}' | grep true; do
-            echo "Attente que backend soit prêt..."
+          echo "🔍 Recherche de l'ID du conteneur pour le service 'backend'..."
+          until docker compose ps -q backend | grep . >/dev/null; do
+            echo "⏳ En attente que le conteneur backend démarre..."
+            sleep 3
+          done
+          
+          CONTAINER_ID=$(docker compose ps -q backend)
+          
+          echo "🔍 Vérification que le conteneur $CONTAINER_ID est bien en cours d'exécution..."
+          until [ "$(docker inspect -f '{{.State.Status}}' "$CONTAINER_ID")" = "running" ]; do
+            echo "⏱️  En attente que le conteneur backend soit prêt..."
             sleep 5
           done
+          
+          echo "✅ Le conteneur backend est prêt !"
+
 
       - name: Configurer les clés JWT et mettre à jour la base de données
         uses: appleboy/ssh-action@v0.1.0
