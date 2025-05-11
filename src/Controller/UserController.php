@@ -83,6 +83,68 @@ final class UserController extends AbstractController{
     }
 
     /**
+     * Returns all users
+     *
+     * @param UserRepository $repository
+     * @param SerializerInterface $serializer
+     * @param TagAwareCacheInterface $cache
+     * @return JsonResponse
+     * @throws InvalidArgumentException
+     */
+    #[OA\Response(
+        response:200,
+        description: "Return all users",
+        content: new OA\JsonContent(
+            type: "array",
+            items: new OA\Items(ref: new Model(type:User::class))
+        )
+    )]
+    #[Route('/api/user', name: 'user_getAll', methods: ['GET'])]
+    #[IsGranted("ROLE_ADMIN")]
+    public function getAll(UserRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache): JsonResponse
+    {
+        $idCache = "getAllUser";
+
+        $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer) {
+            $item->tag("userCache");
+            $users = $repository->findAll();
+            return $serializer->serialize($users, 'json',  ['groups' => "getAll"]);
+        });
+
+        return new JsonResponse($jsonUsers, 200, [], true);
+    }
+
+    /**
+     * Return current logged user entry
+     *
+     * @param SerializerInterface $serializer
+     * @param Security $security
+     * @return JsonResponse
+     */
+    #[OA\Response(
+        response:200,
+        description: "Return logged user",
+        content: new OA\JsonContent(
+            type: "array",
+            items: new OA\Items(ref: new Model(type:User::class))
+        )
+    )]
+    #[Route('/api/user/me', name: 'user_get_me', methods: ['GET'])]
+    public function getLoggedUser(SerializerInterface $serializer, Security $security): JsonResponse
+    {
+        $currentUser = $security->getUser();
+
+        if (!$currentUser) {
+            error_log("Utilisateur non connecté");
+            return new JsonResponse(['message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $jsonUser = $serializer->serialize($currentUser, 'json', ['groups' => "getAll"]);
+
+        return new JsonResponse($jsonUser, 200, [], true);
+    }
+
+    /**
      * Update user entry
      *
      * @param User $user
@@ -169,37 +231,4 @@ final class UserController extends AbstractController{
 
         return new JsonResponse($jsonUser, 200, [], true);
     }
-
-    /**
-     * Returns all users
-     *
-     * @param UserRepository $repository
-     * @param SerializerInterface $serializer
-     * @param TagAwareCacheInterface $cache
-     * @return JsonResponse
-     * @throws InvalidArgumentException
-     */
-    #[OA\Response(
-        response:200,
-        description: "Return all users",
-        content: new OA\JsonContent(
-            type: "array",
-            items: new OA\Items(ref: new Model(type:User::class))
-        )
-    )]
-    #[Route('/api/user', name: 'user_getAll', methods: ['GET'])]
-    #[IsGranted("ROLE_ADMIN")]
-    public function getAll(UserRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache): JsonResponse
-    {
-        $idCache = "getAllUser";
-
-        $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer) {
-            $item->tag("userCache");
-            $users = $repository->findAll();
-            return $serializer->serialize($users, 'json',  ['groups' => "getAll"]);
-        });
-
-        return new JsonResponse($jsonUsers, 200, [], true);
-    }
-
 }
