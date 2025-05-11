@@ -127,6 +127,13 @@ jobs:
             docker compose down
             docker compose up -d --build --remove-orphans
 
+      - name: Attendre que greenquest-backend soit prêt
+        run: |
+          until docker compose ps -q greenquest-backend | xargs docker inspect -f '{{.State.Running}}' | grep true; do
+            echo "Attente que greenquest-backend soit prêt..."
+            sleep 5
+          done
+
       - name: Configurer les clés JWT et mettre à jour la base de données
         uses: appleboy/ssh-action@v0.1.0
         with:
