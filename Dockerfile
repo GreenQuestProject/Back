@@ -32,4 +32,4 @@ RUN chown -R www-data:www-data /var/www/html/var
 
 EXPOSE 9000
 
-CMD ["php-fpm"]
+CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]
