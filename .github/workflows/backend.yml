@@ -126,13 +126,17 @@ jobs:
             docker pull kteyssere/greenquest-backend:latest
             docker compose down
             docker compose up -d --build --remove-orphans
-            echo "⏳ Attente du démarrage de greenquest-backend..."
-            sleep 10
-            docker compose ps
-            docker compose logs greenquest-backend
+
+      - name: Configurer les clés JWT et mettre à jour la base de données
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
             docker compose exec -T greenquest-backend mkdir -p config/jwt
             echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/private.pem > /dev/null
             echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/public.pem > /dev/null
             docker compose exec -T greenquest-backend chmod 600 config/jwt/*.pem
             docker compose exec -T greenquest-backend php bin/console doctrine:schema:update --force --no-interaction
-
+  
