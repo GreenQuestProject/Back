@@ -127,25 +127,6 @@ jobs:
             docker compose down
             docker compose up -d --build --remove-orphans
 
-      - name: Attendre que greenquest-backend soit prêt
-        run: |
-          echo "🔍 Recherche de l'ID du conteneur pour le service 'backend'..."
-          until docker compose ps -q backend | grep . >/dev/null; do
-            echo "⏳ En attente que le conteneur backend démarre..."
-            sleep 3
-          done
-          
-          CONTAINER_ID=$(docker compose ps -q backend)
-          
-          echo "🔍 Vérification que le conteneur $CONTAINER_ID est bien en cours d'exécution..."
-          until [ "$(docker inspect -f '{{.State.Status}}' "$CONTAINER_ID")" = "running" ]; do
-            echo "⏱️  En attente que le conteneur backend soit prêt..."
-            sleep 5
-          done
-          
-          echo "✅ Le conteneur backend est prêt !"
-
-
       - name: Configurer les clés JWT et mettre à jour la base de données
         uses: appleboy/ssh-action@v0.1.0
         with:
@@ -154,9 +135,9 @@ jobs:
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
             cd /var/www
-            docker compose exec -T greenquest-backend mkdir -p config/jwt
-            echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/private.pem > /dev/null
-            echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/public.pem > /dev/null
-            docker compose exec -T greenquest-backend chmod 600 config/jwt/*.pem
-            docker compose exec -T greenquest-backend php bin/console doctrine:schema:update --force --no-interaction
+            docker compose exec -T backend mkdir -p config/jwt
+            echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T backend tee config/jwt/private.pem > /dev/null
+            echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T backend tee config/jwt/public.pem > /dev/null
+            docker compose exec -T backend chmod 600 config/jwt/*.pem
+            docker compose exec -T backend php bin/console doctrine:schema:update --force --no-interaction
   
