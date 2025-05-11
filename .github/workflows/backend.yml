@@ -134,6 +134,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_PRIVATE_KEY }}
           script: |
+            cd /var/www
             docker compose exec -T greenquest-backend mkdir -p config/jwt
             echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/private.pem > /dev/null
             echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T greenquest-backend tee config/jwt/public.pem > /dev/null
