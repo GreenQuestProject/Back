@@ -127,25 +127,12 @@ jobs:
             docker compose down
             docker compose up -d --build --remove-orphans
 
-      - name: Attendre que le conteneur greenquest-backend soit prêt
+      - name: Attendre que greenquest-backend soit prêt
         run: |
-          echo "🔍 Recherche du conteneur nommé contenant 'greenquest-backend'..."
-          CONTAINER_ID=$(docker ps -q --filter "name=greenquest-backend")
-          
-          if [ -z "$CONTAINER_ID" ]; then
-            echo "❌ Aucun conteneur ne correspond à 'greenquest-backend'."
-            docker ps -a
-            exit 1
-          fi
-          
-          echo "⏳ Attente que le conteneur $CONTAINER_ID soit en cours d'exécution..."
-          until [ "$(docker inspect -f '{{.State.Status}}' $CONTAINER_ID)" = "running" ]; do
-            echo "⏱️  En attente que greenquest-backend soit prêt..."
+          until docker compose ps -q backend | xargs docker inspect -f '{{.State.Running}}' | grep true; do
+            echo "Attente que backend soit prêt..."
             sleep 5
           done
-          
-          echo "✅ Conteneur greenquest-backend prêt !"
-
 
       - name: Configurer les clés JWT et mettre à jour la base de données
         uses: appleboy/ssh-action@v0.1.0
