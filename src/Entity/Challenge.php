@@ -34,9 +34,15 @@ class Challenge
     #[Groups(["getAll"])]
     private ChallengeCategory $category = ChallengeCategory::NONE;
 
+    /**
+     * @var Collection<int, Progression>
+     */
+    #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'challenge', orphanRemoval: true)]
+    private Collection $progressions;
+
     public function __construct()
     {
-
+        $this->progressions = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -79,5 +85,34 @@ class Challenge
         return $this;
     }
 
+    /**
+     * @return Collection<int, Progression>
+     */
+    public function getProgressions(): Collection
+    {
+        return $this->progressions;
+    }
+
+    public function addProgression(Progression $progression): static
+    {
+        if (!$this->progressions->contains($progression)) {
+            $this->progressions->add($progression);
+            $progression->setChallenge($this);
+        }
+
+        return $this;
+    }
+
+    public function removeProgression(Progression $progression): static
+    {
+        if ($this->progressions->removeElement($progression)) {
+            // set the owning side to null (unless already changed)
+            if ($progression->getChallenge() === $this) {
+                $progression->setChallenge(null);
+            }
+        }
+
+        return $this;
+    }
 
 }

@@ -122,7 +122,7 @@ final class ChallengeController extends AbstractController{
     /**
      * Return challenge entry
      *
-     * @param Challenge $challenge
+     * @param Challenge|null $challenge
      * @param SerializerInterface $serializer
      * @return JsonResponse
      */

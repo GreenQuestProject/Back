@@ -31,6 +31,8 @@ final class UserControllerTest extends WebTestCase{
         $this->passwordHasher = UserControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
 
         // Nettoyage si besoin (sécurité en cas de test planté précédemment)
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Progression')->execute();
+
         $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
 
         // Créer un user
