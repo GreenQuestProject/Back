@@ -85,7 +85,8 @@ final class ChallengeControllerTest extends WebTestCase{
 
         $challengeData = [
             'name' => 'test',
-            'category' => "none"
+            'category' => "none",
+            'description' => ""
         ];
 
         $jwtToken = $this->getJwtToken('admin', 'password');

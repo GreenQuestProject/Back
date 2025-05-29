@@ -16,7 +16,7 @@ class ProgressionRepository extends ServiceEntityRepository
         parent::__construct($registry, Progression::class);
     }
 
-    public function findByUserWithFilters($user, ?string $status, ?string $type): array
+    public function findByUserWithFilters($user, ?string $status, ?string $category): array
     {
         $qb = $this->createQueryBuilder('p')
             ->join('p.challenge', 'c')
@@ -28,9 +28,9 @@ class ProgressionRepository extends ServiceEntityRepository
                 ->setParameter('status', $status);
         }
 
-        if ($type) {
-            $qb->andWhere('c.type = :type')
-                ->setParameter('type', $type);
+        if ($category) {
+            $qb->andWhere('c.category = :category')
+                ->setParameter('category', $category);
         }
 
         return $qb->getQuery()->getResult();

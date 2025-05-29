@@ -38,13 +38,13 @@ final class ProgressionController extends AbstractController{
             return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $user = $userRepo->findOneBy(['email' => $userInterface->getUserIdentifier()]);
+        $user = $userRepo->findOneBy(['username' => $userInterface->getUserIdentifier()]);
 
         if (!$user) {
             return $this->json(['error' => 'Utilisateur introuvable dans la base'], Response::HTTP_UNAUTHORIZED);
         }
 
-        // Reste du code identique
+
         $existing = $progressionRepo->findOneBy([
             'user' => $user,
             'challenge' => $challenge,
@@ -189,15 +189,15 @@ final class ProgressionController extends AbstractController{
         }
 
         $status = $request->query->get('status'); // ex: "COMPLETED"
-        $type = $request->query->get('type');     // ex: "ecologique"
+        $type = $request->query->get('category');     // ex: "ecologique"
 
         $progressions = $progressionRepo->findByUserWithFilters($user, $status, $type);
 
         $data = array_map(function (Progression $progression) {
             return [
                 'challenge_id' => $progression->getChallenge()->getId(),
-                'title' => $progression->getChallenge()->getTitle(),
-                'type' => $progression->getChallenge()->getType(),
+                'name' => $progression->getChallenge()->getName(),
+                'category' => $progression->getChallenge()->getCategory(),
                 'status' => $progression->getStatus()->value,
                 'started_at' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
                 'completed_at' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),

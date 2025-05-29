@@ -27,6 +27,7 @@ final class ProgressionControllerTest extends WebTestCase{
         $this->passwordHasher = ChallengeControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
 
         // Nettoyage si besoin (sécurité en cas de test planté précédemment)
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Progression')->execute();
         $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
         $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge')->execute();
 
@@ -35,7 +36,7 @@ final class ProgressionControllerTest extends WebTestCase{
             ->setUsername('user')
             ->setEmail('user@user')
             ->setRoles(['ROLE_USER']);
-        $this->user->setPassword($this->passwordHasher->hashPassword($user, 'password'));
+        $this->user->setPassword($this->passwordHasher->hashPassword($this->user, 'password'));
         $this->entityManager->persist($this->user);
 
         // Créer un challenge
@@ -57,6 +58,7 @@ final class ProgressionControllerTest extends WebTestCase{
         $this->assertResponseStatusCodeSame(Response::HTTP_OK);
 
         $response = json_decode($this->client->getResponse()->getContent(), true);
+
         return $response['token'] ?? '';
     }
 
@@ -65,7 +67,7 @@ final class ProgressionControllerTest extends WebTestCase{
         $progression = new Progression();
         $progression->setUser($this->user)
         ->setChallenge($this->challenge)
-        ->setStatus(ChallengeStatus::PENDING)->setStartedAt();
+        ->setStatus(ChallengeStatus::PENDING)->setStartedAt(new \DateTime());
 
         $this->entityManager->persist($progression);
         $this->entityManager->flush();
@@ -73,11 +75,154 @@ final class ProgressionControllerTest extends WebTestCase{
         return $progression;
     }
 
-    private function deleteChallenge(Challenge $challenge): void
+    private function deleteProgression(Progression $progression): void
     {
-        $challenge = $this->entityManager->getRepository(Challenge::class)->findOneBy(['name' => $challenge->getName()]);
+        $progression = $this->entityManager->getRepository(Progression::class)->find($progression);
 
-        $this->entityManager->remove($challenge);
+        $this->entityManager->remove($progression);
         $this->entityManager->flush();
     }
+
+    public function testStartChallengeUnauthenticated(): void
+    {
+        $this->client->request('POST', '/api/progression/start/1');
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function testStartChallenge(): void
+    {
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'POST',
+            '/api/progression/start/' . $this->challenge->getId(),
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+                'CONTENT_TYPE' => 'application/json',
+            ]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Défi commencé avec succès', $response['message']);
+    }
+
+    public function testStartAlreadyStartedChallenge(): void
+    {
+        $progression = $this->createProgression($this->user);
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'POST',
+            '/api/progression/start/' . $this->challenge->getId(),
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+                'CONTENT_TYPE' => 'application/json',
+            ]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Défi déjà commencé', $response['message']);
+    }
+
+    public function testRemoveChallenge(): void
+    {
+        $progression = $this->createProgression($this->user);
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'DELETE',
+            '/api/progression/remove/' . $this->challenge->getId(),
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Défi supprimé de vos progressions', $response['message']);
+    }
+
+    public function testRemoveChallengeNotFound(): void
+    {
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request('DELETE', '/api/progression/remove/999999',
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+
+    public function testValidateChallenge(): void
+    {
+        $progression = $this->createProgression($this->user);
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'POST',
+            '/api/progression/validate/' . $this->challenge->getId(),
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertEquals('Défi validé avec succès', $response['message']);
+    }
+
+    public function testListUserProgression(): void
+    {
+        $progression = $this->createProgression($this->user);
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'GET',
+            '/api/progression',
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $data = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertIsArray($data);
+        $this->assertNotEmpty($data);
+        $this->assertEquals($this->challenge->getId(), $data[0]['challenge_id']);
+    }
+
+    public function testListProgressionWithFilter(): void
+    {
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request('GET', '/api/progression?status=COMPLETED&category=ecologique',
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseFormatSame('json');
+    }
+
+
+
 }
