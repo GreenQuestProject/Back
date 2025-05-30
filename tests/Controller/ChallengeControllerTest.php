@@ -323,4 +323,23 @@ final class ChallengeControllerTest extends WebTestCase{
         $this->deleteChallenge($challenge);
     }
 
+    public function testGetChallengesByCategory(): void
+    {
+        $this->createChallenge('test');
+        $jwtToken = $this->getJwtToken('user', 'password');
+        $this->client->request('GET', '/api/challenge?category=none',
+            [],
+            [],
+            ['HTTP_Authorization' => "Bearer $jwtToken"]);
+
+        $this->assertResponseIsSuccessful();
+        $this->assertResponseHeaderSame('Content-Type', 'application/json');
+
+        $responseData = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertIsArray($responseData);
+        $this->assertNotEmpty($responseData);
+        $this->assertEquals('test', $responseData[0]['name']);
+    }
+
 }

@@ -152,6 +152,7 @@ final class ChallengeController extends AbstractController{
      * @param ChallengeRepository $repository
      * @param SerializerInterface $serializer
      * @param TagAwareCacheInterface $cache
+     * @param Request $request
      * @return JsonResponse
      * @throws InvalidArgumentException
      */
@@ -164,13 +165,15 @@ final class ChallengeController extends AbstractController{
         )
     )]
     #[Route('/api/challenge', name: 'challenge_getAll', methods: ['GET'])]
-    public function getAll(ChallengeRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache): JsonResponse
+    public function getAll(ChallengeRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache, Request $request): JsonResponse
     {
-        $idCache = "getAllChallenge";
+        $category = $request->query->get('category');
 
-        $jsonChallenges = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer) {
+        $idCache = "getAllChallenge-" . ($category ?? 'all');
+
+        $jsonChallenges = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer, $category) {
             $item->tag("challengeCache");
-            $challenges = $repository->findAll();
+            $challenges = $repository->findWithFilters($category);
             return $serializer->serialize($challenges, 'json',  ['groups' => "getAll"]);
         });
 

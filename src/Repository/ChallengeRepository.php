@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Challenge;
+use App\Enum\ChallengeCategory;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -14,6 +15,27 @@ class ChallengeRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Challenge::class);
+    }
+
+    /**
+     * Find challenges with optional filters.
+     *
+     * @param string|null $category
+     * @return Challenge[]
+     */
+    public function findWithFilters(?string $category = null): array
+    {
+        $qb = $this->createQueryBuilder('c');
+
+        if ($category) {
+            $enumCategory = ChallengeCategory::tryFrom($category);
+            if ($enumCategory !== null) {
+                $qb->andWhere('c.category = :category')
+                   ->setParameter('category', $enumCategory);
+            }
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
 //    /**
