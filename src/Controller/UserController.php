@@ -134,11 +134,6 @@ final class UserController extends AbstractController{
     {
         $currentUser = $security->getUser();
 
-        if (!$currentUser) {
-            error_log("Utilisateur non connecté");
-            return new JsonResponse(['message' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
-        }
-
         $jsonUser = $serializer->serialize($currentUser, 'json', ['groups' => "getAll"]);
 
         return new JsonResponse($jsonUser, 200, [], true);
@@ -218,10 +213,6 @@ final class UserController extends AbstractController{
         }
 
         $currentUser = $security->getUser();
-
-        if (!$currentUser) {
-            return new JsonResponse(['message' => 'Unauthorized'], Response::HTTP_FORBIDDEN);
-        }
 
         if ($currentUser->getId() !== $user->getId() && !in_array('ROLE_ADMIN', $currentUser->getRoles())) {
             return new JsonResponse(['message' => 'Access Denied'], Response::HTTP_FORBIDDEN);

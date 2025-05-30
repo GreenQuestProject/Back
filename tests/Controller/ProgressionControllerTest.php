@@ -85,9 +85,23 @@ final class ProgressionControllerTest extends WebTestCase{
 
     public function testStartChallengeUnauthenticated(): void
     {
-        $this->client->request('POST', '/api/progression/start/1');
+        $this->client->request('POST', '/api/progression/start/'. $this->challenge->getId());
 
         $this->assertResponseStatusCodeSame(Response::HTTP_UNAUTHORIZED);
+    }
+
+    public function testStartChallengeUserNotFound(): void
+    {
+        // Utilisateur fictif jamais persisté
+        $ghostUser = new User();
+        $ghostUser->setUsername('ghost');
+        $ghostUser->setPassword('fakepassword');
+        $this->client->loginUser($ghostUser);
+
+        $this->client->request('POST', '/api/progression/start/' . $this->challenge->getId());
+
+        $this->assertResponseStatusCodeSame(401);
+        $this->assertStringContainsString('Utilisateur introuvable', $this->client->getResponse()->getContent());
     }
 
     public function testStartChallenge(): void
@@ -112,7 +126,7 @@ final class ProgressionControllerTest extends WebTestCase{
 
     public function testStartAlreadyStartedChallenge(): void
     {
-        $progression = $this->createProgression($this->user);
+        $this->createProgression($this->user);
         $token = $this->getJwtToken('user', 'password');
 
         $this->client->request(
@@ -133,7 +147,7 @@ final class ProgressionControllerTest extends WebTestCase{
 
     public function testRemoveChallenge(): void
     {
-        $progression = $this->createProgression($this->user);
+        $this->createProgression($this->user);
         $token = $this->getJwtToken('user', 'password');
 
         $this->client->request(
@@ -155,7 +169,7 @@ final class ProgressionControllerTest extends WebTestCase{
     {
         $token = $this->getJwtToken('user', 'password');
 
-        $this->client->request('DELETE', '/api/progression/remove/999999',
+        $this->client->request('DELETE', '/api/progression/remove/' . $this->challenge->getId(),
             [],
             [],
             [
@@ -165,9 +179,23 @@ final class ProgressionControllerTest extends WebTestCase{
         $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
+    public function testRemoveChallengeProgressionNotFound(): void
+    {
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request('DELETE', '/api/progression/remove/999999',
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]);
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+    }
+    
     public function testValidateChallenge(): void
     {
-        $progression = $this->createProgression($this->user);
+        $this->createProgression($this->user);
         $token = $this->getJwtToken('user', 'password');
 
         $this->client->request(
@@ -183,6 +211,23 @@ final class ProgressionControllerTest extends WebTestCase{
         $this->assertResponseIsSuccessful();
         $response = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertEquals('Défi validé avec succès', $response['message']);
+    }
+
+    public function testValidateChallengeNotFound(): void
+    {
+        $token = $this->getJwtToken('user', 'password');
+
+        $this->client->request(
+            'POST',
+            '/api/progression/validate/' . $this->challenge->getId(),
+            [],
+            [],
+            [
+                'HTTP_AUTHORIZATION' => 'Bearer ' . $token,
+            ]
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
     }
 
     public function testListUserProgression(): void
