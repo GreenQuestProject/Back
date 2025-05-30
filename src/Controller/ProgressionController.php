@@ -34,10 +34,6 @@ final class ProgressionController extends AbstractController{
     ): Response {
         $userInterface = $this->getUser();
 
-        if (!$userInterface) {
-            return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
         $user = $userRepo->findOneBy(['username' => $userInterface->getUserIdentifier()]);
 
         if (!$user) {
@@ -81,10 +77,6 @@ final class ProgressionController extends AbstractController{
     ): Response {
         $user = $this->getUser();
 
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
-
         $progression = $progressionRepo->findOneBy([
             'user' => $user,
             'challenge' => $challenge,
@@ -114,10 +106,6 @@ final class ProgressionController extends AbstractController{
         ProgressionRepository $progressionRepo
     ): Response {
         $user = $this->getUser();
-
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
 
         $progression = $progressionRepo->findOneBy([
             'user' => $user,
@@ -184,9 +172,6 @@ final class ProgressionController extends AbstractController{
         ProgressionRepository $progressionRepo
     ): Response {
         $user = $this->getUser();
-        if (!$user) {
-            return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
-        }
 
         $status = $request->query->get('status'); // ex: "COMPLETED"
         $type = $request->query->get('category');     // ex: "ecologique"
