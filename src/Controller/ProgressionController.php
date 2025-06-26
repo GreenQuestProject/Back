@@ -180,7 +180,7 @@ final class ProgressionController extends AbstractController{
 
         $data = array_map(function (Progression $progression) {
             return [
-                'challenge_id' => $progression->getChallenge()->getId(),
+                'description' => $progression->getChallenge()->getDescription(),
                 'name' => $progression->getChallenge()->getName(),
                 'category' => $progression->getChallenge()->getCategory(),
                 'status' => $progression->getStatus()->value,
