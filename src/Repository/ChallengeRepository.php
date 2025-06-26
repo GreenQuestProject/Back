@@ -28,10 +28,16 @@ class ChallengeRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('c');
 
         if ($category) {
-            $enumCategory = ChallengeCategory::tryFrom($category);
-            if ($enumCategory !== null) {
-                $qb->andWhere('c.category = :category')
-                   ->setParameter('category', $enumCategory);
+            $categories = explode(',', $category);
+
+            $enumCategories = array_filter(array_map(
+                fn($cat) => ChallengeCategory::tryFrom(trim($cat)),
+                $categories
+            ));
+
+            if (!empty($enumCategories)) {
+                $qb->andWhere('c.category IN (:categories)')
+                   ->setParameter('categories', $enumCategories);
             }
         }
 

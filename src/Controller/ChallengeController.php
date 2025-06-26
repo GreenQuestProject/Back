@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Challenge;
+use App\Entity\Progression;
 use App\Enum\ChallengeCategory;
 use App\Repository\ChallengeRepository;
+use App\Repository\ProgressionRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use Psr\Cache\InvalidArgumentException;
@@ -23,7 +25,8 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use OpenApi\Attributes as OA;
 
-final class ChallengeController extends AbstractController{
+final class ChallengeController extends AbstractController
+{
 
     /**
      * Create new challenge entry
@@ -39,9 +42,9 @@ final class ChallengeController extends AbstractController{
      */
     #[Route('/api/challenge', name: 'challenge_create', methods: ['POST'])]
     #[IsGranted("ROLE_ADMIN")]
-    public function create(Request $request, SerializerInterface $serializer,
+    public function create(Request                $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, UrlGeneratorInterface $urlgenerator,
-                           ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse
+                           ValidatorInterface     $validator, TagAwareCacheInterface $cache): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
@@ -54,7 +57,7 @@ final class ChallengeController extends AbstractController{
         $data = $request->toArray();
 
         $errors = $validator->validate($challenge);
-        if($errors->count() > 0){
+        if ($errors->count() > 0) {
             return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
         }
 
@@ -68,8 +71,8 @@ final class ChallengeController extends AbstractController{
 
         $cache->invalidateTags(["challengeCache"]);
 
-        $jsonChallenge = $serializer->serialize($challenge, 'json',  ['groups' => "getAll"]);
-        $location = $urlgenerator->generate("challenge_get",  ["idChallenge" => $challenge->getId()], UrlGeneratorInterface::ABSOLUTE_PATH);
+        $jsonChallenge = $serializer->serialize($challenge, 'json', ['groups' => "getAll"]);
+        $location = $urlgenerator->generate("challenge_get", ["idChallenge" => $challenge->getId()], UrlGeneratorInterface::ABSOLUTE_PATH);
         return new JsonResponse($jsonChallenge, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
@@ -86,7 +89,7 @@ final class ChallengeController extends AbstractController{
      */
     #[Route('/api/challenge/{id}', name: 'challenge_update', methods: ['PUT'])]
     #[IsGranted("ROLE_ADMIN")]
-    public function update(Challenge $challenge, Request $request, SerializerInterface $serializer,
+    public function update(Challenge              $challenge, Request $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
         $updatedChallenge = $serializer->deserialize($request->getContent(), Challenge::class, "json", [AbstractNormalizer::OBJECT_TO_POPULATE => $challenge]);
@@ -127,11 +130,11 @@ final class ChallengeController extends AbstractController{
      * @return JsonResponse
      */
     #[OA\Response(
-        response:200,
+        response: 200,
         description: "Return one challenge",
         content: new OA\JsonContent(
             type: "array",
-            items: new OA\Items(ref: new Model(type:Challenge::class))
+            items: new OA\Items(ref: new Model(type: Challenge::class))
         )
     )]
     #[Route('/api/challenge/{idChallenge}', name: 'challenge_get', methods: ['GET'])]
@@ -149,34 +152,61 @@ final class ChallengeController extends AbstractController{
     /**
      * Returns all challenges
      *
-     * @param ChallengeRepository $repository
-     * @param SerializerInterface $serializer
-     * @param TagAwareCacheInterface $cache
      * @param Request $request
+     * @param ChallengeRepository $challengeRepo
+     * @param ProgressionRepository $progressionRepo
+     * @param TagAwareCacheInterface $cache
      * @return JsonResponse
      * @throws InvalidArgumentException
      */
     #[OA\Response(
-        response:200,
+        response: 200,
         description: "Return all challenges",
         content: new OA\JsonContent(
             type: "array",
-            items: new OA\Items(ref: new Model(type:Challenge::class))
+            items: new OA\Items(ref: new Model(type: Challenge::class))
         )
     )]
     #[Route('/api/challenge', name: 'challenge_getAll', methods: ['GET'])]
-    public function getAll(ChallengeRepository $repository, SerializerInterface $serializer, TagAwareCacheInterface $cache, Request $request): JsonResponse
+    public function getAll(
+        Request                $request,
+        ChallengeRepository    $challengeRepo,
+        ProgressionRepository  $progressionRepo,
+        TagAwareCacheInterface $cache
+    ): JsonResponse
     {
+        $user = $this->getUser();
         $category = $request->query->get('category');
+        $cacheId = 'getAllChallenge-' . ($category ?? 'all');
 
-        $idCache = "getAllChallenge-" . ($category ?? 'all');
+        $cache->delete($cacheId);
 
-        $jsonChallenges = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer, $category) {
-            $item->tag("challengeCache");
-            $challenges = $repository->findWithFilters($category);
-            return $serializer->serialize($challenges, 'json',  ['groups' => "getAll"]);
+        $challenges = $cache->get($cacheId, function (ItemInterface $item) use ($challengeRepo, $category) {
+            $item->tag('challengeCache');
+            return $challengeRepo->findWithFilters($category);
         });
 
-        return new JsonResponse($jsonChallenges, 200, [], true);
+        if (!is_iterable($challenges)) {
+            $challenges = [];
+        }
+
+        $userProgressions = $progressionRepo->findBy(['user' => $user]);
+
+        $challengeIdsWithProgression = array_unique(array_filter(array_map(
+            fn(Progression $progression) => $progression->getChallenge()?->getId(),
+            $userProgressions
+        )));
+
+        $data = array_map(function (Challenge $challenge) use ($challengeIdsWithProgression) {
+            return [
+                'id' => $challenge->getId(),
+                'name' => $challenge->getName(),
+                'description' => $challenge->getDescription(),
+                'category' => $challenge->getCategory(),
+                'isInUserProgression' => in_array($challenge->getId(), $challengeIdsWithProgression),
+            ];
+        }, is_array($challenges) ? $challenges : iterator_to_array($challenges));
+
+        return new JsonResponse($data, 200);
     }
 }
