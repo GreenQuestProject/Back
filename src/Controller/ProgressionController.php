@@ -15,7 +15,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use OpenApi\Attributes as OA;
 use Nelmio\ApiDocBundle\Attribute\Model;
 
-final class ProgressionController extends AbstractController{
+final class ProgressionController extends AbstractController
+{
 
     /**
      * Start challenge
@@ -27,11 +28,12 @@ final class ProgressionController extends AbstractController{
      */
     #[Route('/api/progression/start/{id}', name: 'progression_start', methods: ['POST'])]
     public function startChallenge(
-        Challenge $challenge,
-        UserRepository $userRepo,
+        Challenge              $challenge,
+        UserRepository         $userRepo,
         EntityManagerInterface $entityManager,
-        ProgressionRepository $progressionRepo
-    ): Response {
+        ProgressionRepository  $progressionRepo
+    ): Response
+    {
         $userInterface = $this->getUser();
 
         $user = $userRepo->findOneBy(['username' => $userInterface->getUserIdentifier()]);
@@ -71,10 +73,11 @@ final class ProgressionController extends AbstractController{
      */
     #[Route('/api/progression/remove/{id}', name: 'progression_remove', methods: ['DELETE'])]
     public function removeChallenge(
-        Challenge $challenge,
+        Challenge              $challenge,
         EntityManagerInterface $entityManager,
-        ProgressionRepository $progressionRepo
-    ): Response {
+        ProgressionRepository  $progressionRepo
+    ): Response
+    {
         $user = $this->getUser();
 
         $progression = $progressionRepo->findOneBy([
@@ -101,10 +104,11 @@ final class ProgressionController extends AbstractController{
      */
     #[Route('/api/progression/validate/{id}', name: 'progression_validate', methods: ['POST'])]
     public function validateChallenge(
-        Challenge $challenge,
+        Challenge              $challenge,
         EntityManagerInterface $entityManager,
-        ProgressionRepository $progressionRepo
-    ): Response {
+        ProgressionRepository  $progressionRepo
+    ): Response
+    {
         $user = $this->getUser();
 
         $progression = $progressionRepo->findOneBy([
@@ -123,6 +127,59 @@ final class ProgressionController extends AbstractController{
 
         return $this->json(['message' => 'Défi validé avec succès']);
     }
+
+    /**
+     * Modify the status of a progression by its ID
+     * @param int $id
+     * @param Request $request
+     * @param EntityManagerInterface $entityManager
+     * @param ProgressionRepository $progressionRepo
+     * @return Response
+     */
+    #[Route('/api/progression/status/{id}', name: 'progression_modify_status', methods: ['POST'])]
+    public function modifyProgressionStatus(
+        int                    $id,
+        Request                $request,
+        EntityManagerInterface $entityManager,
+        ProgressionRepository  $progressionRepo
+    ): Response
+    {
+        $user = $this->getUser();
+
+        $progression = $progressionRepo->find($id);
+
+        if (!$progression || $progression->getUser() !== $user) {
+            return $this->json(['message' => 'Progression non trouvée ou accès refusé'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['status'])) {
+            return $this->json(['message' => 'Le statut est obligatoire'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $newStatus = $data['status'];
+
+        $newStatusEnum = ChallengeStatus::tryFrom($newStatus);
+
+        if ($newStatusEnum === null) {
+            return $this->json(['message' => 'Statut invalide'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $progression->setStatus($newStatusEnum);
+
+        if ($newStatusEnum === ChallengeStatus::COMPLETED) {
+            $progression->setCompletedAt(new \DateTimeImmutable());
+        } else {
+            $progression->setCompletedAt(null);
+        }
+
+        $entityManager->flush();
+
+        return $this->json(['message' => 'Statut de la progression mis à jour avec succès']);
+
+    }
+
 
     /**
      * Get user's progression list
@@ -168,9 +225,10 @@ final class ProgressionController extends AbstractController{
     )]
     #[Route('/api/progression', name: 'progression_list', methods: ['GET'])]
     public function listUserProgression(
-        Request $request,
+        Request               $request,
         ProgressionRepository $progressionRepo
-    ): Response {
+    ): Response
+    {
         $user = $this->getUser();
 
         $status = $request->query->get('status'); // ex: "COMPLETED"
@@ -180,6 +238,8 @@ final class ProgressionController extends AbstractController{
 
         $data = array_map(function (Progression $progression) {
             return [
+                'id' => $progression->getId(),
+                'challenge_id' => $progression->getChallenge()->getId(),
                 'description' => $progression->getChallenge()->getDescription(),
                 'name' => $progression->getChallenge()->getName(),
                 'category' => $progression->getChallenge()->getCategory(),
