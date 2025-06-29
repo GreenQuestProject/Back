@@ -26,8 +26,9 @@ security:
             stateless: true
             #entry_point: jwt
             jwt: ~
-            #refresh_jwt:
-            #    check_path: /api/token/refresh
+            refresh_jwt:
+                check_path: /api/token/refresh
+            entry_point: jwt
 
     access_control:
         - { path: ^/api/login, roles: PUBLIC_ACCESS }
