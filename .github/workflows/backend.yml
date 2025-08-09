@@ -53,10 +53,11 @@ jobs:
       - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Setup PHP
+      - name: Setup PHP (avec Xdebug pour la couverture)
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          coverage: xdebug
           extensions: mbstring, xml, ctype, iconv, pdo_mysql
           tools: composer
 
@@ -87,11 +88,31 @@ jobs:
           echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d > config/jwt/public.pem
           chmod 600 config/jwt/private.pem config/jwt/public.pem
 
-      - name: Exécuter les tests
+      # --- TESTS + COUVERTURE CLOVER ---
+      - name: Exécuter les tests (avec couverture Clover)
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
           JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE }}
-        run: php vendor/bin/phpunit
+        run: |
+          mkdir -p build/logs
+          php vendor/bin/phpunit --coverage-clover build/logs/clover.xml
+
+      # --- SONARQUBE SCAN ---
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.projectKey=back
+            -Dsonar.projectName=back
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
+            -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
+            -Dsonar.projectBaseDir=.
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
 
   deploy_staging:
     runs-on: ubuntu-latest
