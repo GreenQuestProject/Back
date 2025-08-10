@@ -1,35 +1,40 @@
-# Dockerfile (Symfony)
+# --- stage build: installe les vendors ---
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts
+COPY . .
+RUN composer dump-autoload --optimize --classmap-authoritative
+
+# --- stage runtime: FPM ---
 FROM php:8.3-fpm
 
-# Dépendances système
+# Dépendances système nécessaires aux extensions
 RUN apt-get update && apt-get install -y \
-    git \
-    zip \
-    unzip \
-    libicu-dev \
-    libzip-dev \
-    libonig-dev \
-    libpq-dev \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    && docker-php-ext-install intl pdo pdo_mysql zip mbstring gd xml \
-    && echo "PHP Extensions installed successfully" \
-    || echo "PHP Extensions installation failed"
-
-
-# Installer Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+    libicu-dev libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install intl pdo pdo_mysql zip gd opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /var/www/html
 
-COPY . .
+# Copie code + vendors (depuis le stage vendor)
+COPY --from=vendor /app /var/www/html
 
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+# Cache Symfony prod
+ENV APP_ENV=prod
+RUN php bin/console cache:clear --env=prod --no-warmup \
+ && php bin/console cache:warmup --env=prod \
+ && chown -R www-data:www-data var
 
-# Donne les bons droits
-RUN chown -R www-data:www-data /var/www/html/var
+# Opcache prod (mini réglages)
+RUN { \
+      echo "opcache.enable=1"; \
+      echo "opcache.preload=/var/www/html/config/preload.php"; \
+      echo "opcache.preload_user=www-data"; \
+      echo "opcache.validate_timestamps=0"; \
+    } > /usr/local/etc/php/conf.d/opcache.ini
 
+# Le pool FPM écoute par défaut sur 9000 (TCP). Expose pour Nginx interne.
 EXPOSE 9000
-
-CMD ["php", "-S", "0.0.0.0:9000", "-t", "public"]
+CMD ["php-fpm", "-F"]
