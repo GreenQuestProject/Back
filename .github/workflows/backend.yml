@@ -30,7 +30,7 @@ jobs:
           restore-keys: composer-
 
       - name: Installer les dépendances
-        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
   test:
     runs-on: ubuntu-latest
@@ -69,7 +69,7 @@ jobs:
           restore-keys: composer-
 
       - name: Installer les dépendances
-        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
       - name: Supprimer le schéma
         env:
@@ -145,13 +145,12 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             cd /var/www
             docker pull kteyssere/greenquest-backend:staging
-            docker compose -f docker-compose.staging.yml down
-            docker compose -f docker-compose.staging.yml up -d --build --remove-orphans
-            docker compose -f docker-compose.staging.yml exec -T backend mkdir -p config/jwt
-            echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose -f docker-compose.staging.yml exec -T backend tee config/jwt/private.pem > /dev/null
-            echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose -f docker-compose.staging.yml exec -T backend tee config/jwt/public.pem > /dev/null
-            docker compose -f docker-compose.staging.yml exec -T backend chmod 600 config/jwt/*.pem
-            docker compose -f docker-compose.staging.yml exec -T backend php bin/console doctrine:schema:update --force --no-interaction
+            docker compose up -d --build --no-deps backend-staging
+            docker compose exec -T backend-staging mkdir -p config/jwt
+            echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T backend-staging tee config/jwt/private.pem > /dev/null
+            echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T backend-staging tee config/jwt/public.pem > /dev/null
+            docker compose exec -T backend-staging chmod 600 config/jwt/*.pem
+            docker compose exec -T backend-staging php bin/console doctrine:schema:update --force --no-interaction
 
   deploy_prod:
     runs-on: ubuntu-latest
@@ -186,8 +185,7 @@ jobs:
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             cd /var/www
             docker pull kteyssere/greenquest-backend:latest
-            docker compose down
-            docker compose up -d --build --remove-orphans
+            docker compose up -d --build --no-deps backend
             docker compose exec -T backend mkdir -p config/jwt
             echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T backend tee config/jwt/private.pem > /dev/null
             echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T backend tee config/jwt/public.pem > /dev/null
