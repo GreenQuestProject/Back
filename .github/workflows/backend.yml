@@ -98,7 +98,24 @@ jobs:
           php vendor/bin/phpunit --coverage-clover build/logs/clover.xml
 
       # --- SONARQUBE SCAN ---
-      - name: SonarQube Scan
+      - name: SonarQube Scan for dev
+        if: github.ref == 'refs/heads/develop'
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.projectKey=back-dev
+            -Dsonar.projectName=back-dev
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
+            -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
+            -Dsonar.projectBaseDir=.
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_DEV }}
+
+      - name: SonarQube Scan for main
+        if: github.ref == 'refs/heads/main'
         uses: SonarSource/sonarqube-scan-action@v5
         with:
           args: >
@@ -112,6 +129,7 @@ jobs:
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
 
 
   deploy_staging:
