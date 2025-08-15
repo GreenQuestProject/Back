@@ -16,12 +16,12 @@ class Progression
     private ?int $id = null;
 
     #[ORM\ManyToOne(inversedBy: 'progressions')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Groups(["getAll"])]
     private ?User $user = null;
 
     #[ORM\ManyToOne(inversedBy: 'progressions')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Groups(["getAll"])]
     private ?Challenge $challenge = null;
 

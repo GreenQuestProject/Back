@@ -51,7 +51,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     /**
      * @var Collection<int, Progression>
      */
-    #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'user', orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'user', cascade: ['remove'], orphanRemoval: true)]
     private Collection $progressions;
 
     public function __construct()

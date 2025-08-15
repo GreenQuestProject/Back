@@ -38,7 +38,7 @@ class Challenge
     /**
      * @var Collection<int, Progression>
      */
-    #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'challenge', orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'challenge', cascade: ['remove'], orphanRemoval: true)]
     private Collection $progressions;
 
     public function __construct()
