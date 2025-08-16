@@ -8,6 +8,7 @@ use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
+use Exception;
 use Faker\Factory;
 use App\Entity\User;
 use Faker\Generator;
@@ -32,6 +33,9 @@ class AppFixtures extends Fixture
         $this->userPasswordHasher = $userPasswordHasher;
     }
 
+    /**
+     * @throws Exception
+     */
     public function load(ObjectManager $manager): void
     {
         // Public
@@ -76,7 +80,7 @@ class AppFixtures extends Fixture
         }
 
         foreach ($users as $user) {
-            $userChallenges = $this->faker->randomElements($challenges, rand(2, 5));
+            $userChallenges = $this->faker->randomElements($challenges, random_int(2, 5));
 
             foreach ($userChallenges as $challenge) {
                 $progression = new Progression();
