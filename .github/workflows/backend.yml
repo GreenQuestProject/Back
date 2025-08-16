@@ -109,6 +109,7 @@ jobs:
             -Dsonar.tests=tests
             -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
             -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
+            -Dsonar.coverage.exclusions=src/DataFixtures/**,src/Entity/**
             -Dsonar.projectBaseDir=.
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
