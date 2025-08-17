@@ -163,13 +163,8 @@ jobs:
             export JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}
             echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
             cd /var/www
-            docker pull kteyssere/greenquest-backend:staging
+            docker compose pull kteyssere/greenquest-backend:staging
             docker compose up -d --no-deps backend-staging
-            docker compose exec -T backend-staging mkdir -p config/jwt
-            echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d | docker compose exec -T backend-staging tee config/jwt/private.pem > /dev/null
-            echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d | docker compose exec -T backend-staging tee config/jwt/public.pem > /dev/null
-            docker compose exec -T backend-staging chmod 600 config/jwt/*.pem
-            docker compose exec -T backend-staging php bin/console doctrine:schema:update --force --no-interaction
 
   deploy_prod:
     runs-on: ubuntu-latest
