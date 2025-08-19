@@ -22,8 +22,8 @@ class Challenge
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Assert\NotBlank(message:"The name must not be empty")]
-    #[Assert\NotNull(message:"The name must not be empty")]
+    #[Assert\NotBlank(message:"Le nom ne doit pas être vide")]
+    #[Assert\NotNull(message:"Le nom ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $name = null;
 

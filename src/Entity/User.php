@@ -13,8 +13,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_USERNAME', fields: ['username'])]
-#[UniqueEntity('username', message:"This userrname is already taken, try another one")]
+#[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
+#[UniqueEntity('email', message:"Cet email est déjà pris, essayez-en un autre")]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
@@ -23,8 +23,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 180)]
-    #[Assert\NotBlank(message:"The email must not be empty")]
-    #[Assert\NotNull(message:"The email must not be empty")]
+    #[Assert\NotBlank(message:"L’email ne doit pas être vide")]
+    #[Assert\NotNull(message:"L’email ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $email = null;
 
@@ -43,8 +43,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $password = null;
 
     #[ORM\Column(length: 255, unique: true)]
-    #[Assert\NotBlank(message:"The username must not be empty")]
-    #[Assert\NotNull(message:"The username must not be empty")]
+    #[Assert\NotBlank(message:"Le mot de passe ne doit pas être vide")]
+    #[Assert\NotNull(message:"Le mot de passe ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $username = null;
 
