@@ -1,0 +1,59 @@
+# Combien de défis par catégorie (facultatif)
+counts:
+  ecology: 6
+  health: 5
+  community: 4
+  education: 4
+  personal_development: 4
+  none: 1
+
+# Pondération des statuts (facultatif)
+status_weights:
+  pending: 30
+  in_progress: 35
+  completed: 25
+  failed: 10
+
+# Modèles par catégorie (placeholders entre {})
+categories:
+  ecology:
+    - name: "Aller au travail à vélo {days} jours"
+      desc: "Pendant {days} jours, remplace tes trajets par le vélo (~{km} km/jour). Évite ~{co2} kg CO₂."
+    - name: "Semaine sans plastique jetable"
+      desc: "Aucune bouteille/sac/emballage à usage unique. Utilise une gourde et un tote bag. Note {ideas} alternatives."
+    - name: "Menu végétarien {count} soirs sur 7"
+      desc: "Planifie {count} dîners sans viande. Partage 1 recette (≤ {minutes} min)."
+    - name: "Compost de cuisine : {days} jours"
+      desc: "Installe un bio-seau, pèse les biodéchets (~{grams} g/j). Apporte au composteur ({distance} m)."
+
+  health:
+    - name: "Marche {steps} pas / jour"
+      desc: "Atteins {steps} pas/jour pendant {days} jours. Astuce : pauses actives {break} min."
+    - name: "Routine gainage {minutes} min / jour"
+      desc: "Planche/side-plank/hollow body pendant {minutes} min, {days} jours de suite."
+    - name: "Hydratation : {liters} L / jour"
+      desc: "Bois {liters} L d’eau pendant {days} jours. Utilise une gourde graduée."
+
+  community:
+    - name: "Nettoyage de quartier {hours} h"
+      desc: "Ramassage de déchets {hours} h. Objectif : {bags} sacs remplis."
+    - name: "Donner {items} objets"
+      desc: "Trie chez toi et dépose {items} objets en don (asso/GiveBox/ressourcerie)."
+
+  education:
+    - name: "Lire {books} livres/rapports sur l’écologie"
+      desc: "Lis {books} ouvrages. Résume en {sentences} phrases chacun."
+    - name: "Suivre un MOOC climat"
+      desc: "Complète un cours en ligne en {days} jours."
+    - name: "Audit énergétique du logement"
+      desc: "Liste {actions} actions simples (mousseurs, joints, veille), estime les économies."
+
+  personal_development:
+    - name: "Détox numérique {hours} h/j"
+      desc: "Écrans off {hours} h/j pendant {days} jours. Activité low-tech à la place."
+    - name: "Journal d’écogestes {days} jours"
+      desc: "Chaque jour, note 1 écogeste et son impact (approx.). Objectif : {days} entrées."
+
+  none:
+    - name: "Défi libre"
+      desc: "Choisis un écogeste libre pendant {days} jours et mesure un indicateur simple."
