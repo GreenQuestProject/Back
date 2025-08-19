@@ -1,7 +1,6 @@
 # Combien de défis par catégorie (facultatif)
 counts:
   ecology: 6
-  health: 5
   community: 4
   education: 4
   personal_development: 4
@@ -25,14 +24,6 @@ categories:
       desc: "Planifie {count} dîners sans viande. Partage 1 recette (≤ {minutes} min)."
     - name: "Compost de cuisine : {days} jours"
       desc: "Installe un bio-seau, pèse les biodéchets (~{grams} g/j). Apporte au composteur ({distance} m)."
-
-  health:
-    - name: "Marche {steps} pas / jour"
-      desc: "Atteins {steps} pas/jour pendant {days} jours. Astuce : pauses actives {break} min."
-    - name: "Routine gainage {minutes} min / jour"
-      desc: "Planche/side-plank/hollow body pendant {minutes} min, {days} jours de suite."
-    - name: "Hydratation : {liters} L / jour"
-      desc: "Bois {liters} L d’eau pendant {days} jours. Utilise une gourde graduée."
 
   community:
     - name: "Nettoyage de quartier {hours} h"
