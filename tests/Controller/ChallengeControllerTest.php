@@ -342,4 +342,46 @@ final class ChallengeControllerTest extends WebTestCase{
         $this->assertEquals('test', $responseData[0]['name']);
     }
 
+    public function testGetChallengeCategories(): void
+    {
+        $jwtToken = $this->getJwtToken('user', 'password');
+        $this->assertNotEmpty($jwtToken);
+
+        $this->client->request('GET', '/api/challenge/enums/categories',
+            [],
+            [],
+            ['HTTP_Authorization' => "Bearer $jwtToken"]
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $this->assertResponseHeaderSame('Content-Type', 'application/json');
+
+        $responseData = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertIsArray($responseData);
+        $this->assertNotEmpty($responseData);
+    }
+
+    public function testGetChallengeStatus(): void
+    {
+        $jwtToken = $this->getJwtToken('user', 'password');
+        $this->assertNotEmpty($jwtToken);
+
+        $this->client->request('GET', '/api/challenge/enums/status',
+            [],
+            [],
+            ['HTTP_Authorization' => "Bearer $jwtToken"]
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $this->assertResponseHeaderSame('Content-Type', 'application/json');
+
+        $responseData = json_decode($this->client->getResponse()->getContent(), true);
+
+        $this->assertIsArray($responseData);
+        $this->assertNotEmpty($responseData);
+    }
+
 }
