@@ -173,11 +173,13 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
         ];
     }
 
-    /** Choix pondéré d’une clé (ex: status) */
+    /** Choix pondéré d’une clé (ex: status)
+     * @throws \Exception
+     */
     private function pickWeighted(array $weights): string
     {
         $sum = array_sum($weights);
-        $r = mt_rand(1, max(1, $sum));
+        $r = random_int(1, max(1, $sum));
         $acc = 0;
         foreach ($weights as $key => $w) {
             $acc += $w;
