@@ -1,0 +1,202 @@
+name: CI/CD Backend
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, ctype, iconv, pdo_mysql
+          tools: composer
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Installer les dépendances
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    services:
+      database:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: greenquest_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP (avec Xdebug pour la couverture)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: xdebug
+          extensions: mbstring, xml, ctype, iconv, pdo_mysql
+          tools: composer
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-
+
+      - name: Installer les dépendances
+        run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Supprimer le schéma
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+        run: php bin/console doctrine:schema:drop --force --full-database --no-interaction
+
+      - name: Créer les tables avec Doctrine
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
+        run: php bin/console doctrine:schema:update --force --no-interaction
+
+      - name: Reconstruire les clés JWT
+        run: |
+          mkdir -p config/jwt
+          echo "${{ secrets.JWT_PRIVATE_KEY_B64 }}" | base64 -d > config/jwt/private.pem
+          echo "${{ secrets.JWT_PUBLIC_KEY_B64 }}" | base64 -d > config/jwt/public.pem
+          chmod 600 config/jwt/private.pem config/jwt/public.pem
+
+      # --- TESTS + COUVERTURE CLOVER ---
+      - name: Exécuter les tests (avec couverture Clover)
+        env:
+          DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest
+          JWT_PASSPHRASE: ${{ secrets.JWT_PASSPHRASE }}
+        run: |
+          mkdir -p build/logs
+          php vendor/bin/phpunit --coverage-clover build/logs/clover.xml
+
+      # --- SONARQUBE SCAN ---
+      - name: SonarQube Scan for dev
+        if: github.ref == 'refs/heads/develop'
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.projectKey=back-dev
+            -Dsonar.projectName=back-dev
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
+            -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
+            -Dsonar.coverage.exclusions=src/DataFixtures/**,src/Entity/**
+            -Dsonar.projectBaseDir=.
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_DEV }}
+
+      - name: SonarQube Scan for main
+        if: github.ref == 'refs/heads/main'
+        uses: SonarSource/sonarqube-scan-action@v5
+        with:
+          args: >
+            -Dsonar.projectKey=back
+            -Dsonar.projectName=back
+            -Dsonar.sources=src
+            -Dsonar.tests=tests
+            -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
+            -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
+            -Dsonar.projectBaseDir=.
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+
+
+  deploy_staging:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Connexion à DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push Docker image (staging)
+        run: |
+          docker build -t kteyssere/greenquest-backend:staging .
+          docker push kteyssere/greenquest-backend:staging
+
+      - name: Déploiement sur VPS (staging)
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            export JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            cd /var/www
+            JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker compose pull kteyssere/greenquest-backend:staging
+            JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker compose up -d --no-deps --force-recreate backend-staging
+
+  deploy_prod:
+    runs-on: ubuntu-latest
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Connexion à DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Push Docker image (prod)
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          docker build -t kteyssere/greenquest-backend:$VERSION -t kteyssere/greenquest-backend:latest .
+          docker push kteyssere/greenquest-backend:$VERSION
+          docker push kteyssere/greenquest-backend:latest
+
+      - name: Déploiement sur VPS (prod)
+        uses: appleboy/ssh-action@v0.1.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_PRIVATE_KEY }}
+          script: |
+            export JWT_PASSPHRASE=${{ secrets.JWT_PASSPHRASE }}
+            echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+            cd /var/www
+            JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker pull kteyssere/greenquest-backend:latest
+            JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker compose up -d --no-deps backend
