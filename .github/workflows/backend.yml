@@ -168,7 +168,7 @@ jobs:
             cd /var/www
             JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker pull $IMAGE:staging
             JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker compose up -d --no-deps --force-recreate backend-staging
-            docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+            docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --query-time=600
             docker compose exec -T backend-staging php bin/console cache:clear --env=prod
 
   deploy_prod:
@@ -205,5 +205,5 @@ jobs:
             cd /var/www
             JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker pull $IMAGE:latest
             JWT_PASSPHRASE='${{ secrets.JWT_PASSPHRASE }}' docker compose up -d --no-deps backend
-            docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+            docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --query-time=600
             docker compose exec -T backend php bin/console cache:clear --env=prod
