@@ -142,4 +142,12 @@ _A regrouper dans la prochaine version._
 - Delete health category (9fe0383)
 - Update composer packages (333d26e)
 
+## [0.0.9] - 2025-08-22
+### Maintenance
+- Mise en production **sans changement fonctionnel** (redeploy/infra uniquement).
+### Breaking changes / Migrations
+- Aucune.
+### Traçabilité
+- Tag : `v0.0.9`
+
 ---
