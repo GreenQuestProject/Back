@@ -195,7 +195,7 @@ jobs:
             esac
 
             i=1; while [ $i -le 10 ]; do
-              docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --query-time=600 && break
+              docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration  && break
               echo "retry migrate $i"; i=$((i+1)); sleep 3
             done
 
@@ -267,7 +267,7 @@ jobs:
             esac
 
             i=1; while [ $i -le 10 ]; do
-              docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --query-time=600 && break
+              docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration  && break
               echo "retry migrate $i"; i=$((i+1)); sleep 3
             done
 
