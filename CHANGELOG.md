@@ -150,4 +150,17 @@ _A regrouper dans la prochaine version._
 ### Traçabilité
 - Tag : `v0.0.9`
 
+## [0.0.10] - 2025-08-23
+### Ajouté
+- Sauvegarde automatique de la base de données avant chaque déploiement (mysqldump compressé dans /var/backups/mysql).
+- Sanity check post-déploiement pour vérifier que DATABASE_URL pointe bien sur la bonne BDD (greenquest_staging ou greenquest).
+- Boucle retry pour les migrations et le cache:clear (jusqu’à 10 tentatives).
+
+### Modifié
+- Les migrations Doctrine sont maintenant exécutées systématiquement en staging et prod (doctrine:migrations:migrate --allow-no-migration).
+- Gestion des secrets : ajout de MYSQL_DUMP_USER et MYSQL_DUMP_PASSWORD dans GitHub Secrets.
+
+### Traçabilité
+- Tag : `v0.0.10`
+
 ---
