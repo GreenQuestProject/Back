@@ -364,7 +364,26 @@ final class ProgressionControllerTest extends WebTestCase{
 
         $this->assertIsArray($data);
         $this->assertNotEmpty($data);
-        $this->assertEquals($this->challenge->getId(), $data[0]['challenge_id']);
+
+        // Récupérer le dernier élément
+        $last = end($data);
+
+        $expected = [
+            'id'          => $progression->getId(),
+            'challengeId' => $this->challenge->getId(),
+            'description' => $this->challenge->getDescription(),
+            'name'        => $this->challenge->getName(),
+            'category'    => $this->challenge->getCategory()->value,
+            'status'      => $progression->getStatus()->value,
+            'startedAt'   => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
+            'completedAt' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+            'reminderId'  => null,
+            'nextReminderUtc' => null,
+            'recurrence'  => null,
+            'timezone'    => null,
+        ];
+
+        $this->assertSame($expected, $last);
     }
 
     public function testListProgressionWithFilter(): void

@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Progression;
+use App\Entity\User;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -22,6 +23,8 @@ class ProgressionRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('p')
             ->join('p.challenge', 'c')
+            ->leftJoin('p.reminders', 'r', 'WITH', 'r.active = 1')
+            ->addSelect('c', 'r')
             ->where('p.user = :user')
             ->setParameter('user', $user);
 

@@ -237,15 +237,20 @@ final class ProgressionController extends AbstractController
         $progressions = $progressionRepo->findByUserWithFilters($user, $status, $type);
 
         $data = array_map(function (Progression $progression) {
+            $r = $progression->getActiveReminder();
             return [
                 'id' => $progression->getId(),
-                'challenge_id' => $progression->getChallenge()->getId(),
+                'challengeId' => $progression->getChallenge()->getId(),
                 'description' => $progression->getChallenge()->getDescription(),
                 'name' => $progression->getChallenge()->getName(),
                 'category' => $progression->getChallenge()->getCategory(),
                 'status' => $progression->getStatus()->value,
-                'started_at' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
-                'completed_at' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+                'startedAt' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
+                'completedAt' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+                'reminderId' => $r?->getId(),
+                'nextReminderUtc' => $r?->getScheduledAtUtc()->format(DATE_ATOM),
+                'recurrence'     => $r?->getRecurrence(),
+                'timezone'       => $r?->getTimezone(),
             ];
         }, $progressions);
 

@@ -4,11 +4,15 @@ namespace App\Controller;
 
 use App\Entity\Challenge;
 use App\Entity\Progression;
+use App\Entity\PushSubscription;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use App\Repository\ChallengeRepository;
 use App\Repository\ProgressionRepository;
+use App\Repository\PushSubscriptionRepository;
+use App\Service\PushSender;
 use Doctrine\ORM\EntityManagerInterface;
+use ErrorException;
 use Nelmio\ApiDocBundle\Attribute\Model;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -38,14 +42,18 @@ final class ChallengeController extends AbstractController
      * @param UrlGeneratorInterface $urlgenerator
      * @param ValidatorInterface $validator
      * @param TagAwareCacheInterface $cache
+     * @param PushSender $push
+     * @param PushSubscriptionRepository $pushSubscriptionRepository
      * @return JsonResponse
+     * @throws ErrorException
      * @throws InvalidArgumentException
      */
     #[Route('/api/challenge', name: 'challenge_create', methods: ['POST'])]
     #[IsGranted("ROLE_ADMIN")]
     public function create(Request                $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, UrlGeneratorInterface $urlgenerator,
-                           ValidatorInterface     $validator, TagAwareCacheInterface $cache): JsonResponse
+                           ValidatorInterface     $validator, TagAwareCacheInterface $cache,
+                           PushSender $push, PushSubscriptionRepository $pushSubscriptionRepository): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
@@ -72,6 +80,15 @@ final class ChallengeController extends AbstractController
         $entityManager->persist($challenge);
 
         $entityManager->flush();
+
+        $subs = $pushSubscriptionRepository->findActiveWithNewChallengeEnabled();
+        $payload = [
+            'title' => 'Nouveau défi disponible 🎯',
+            'body' => $challenge->getName(),
+            'data' => [ 'url' => '/defis/' . $challenge->getId() ]
+        ];
+        $push->send($subs, $payload);
+
 
         $cache->invalidateTags(["challengeCache"]);
 
