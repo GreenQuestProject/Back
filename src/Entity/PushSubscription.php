@@ -18,7 +18,7 @@ class PushSubscription
     #[ORM\JoinColumn(nullable: false, onDelete: "CASCADE")]
     private ?User $user = null;
 
-    #[ORM\Column(type: Types::TEXT, unique: true)]
+    #[ORM\Column(type: Types::TEXT)]
     private ?string $endpoint = null;
 
     #[ORM\Column(length: 255)]
@@ -35,6 +35,9 @@ class PushSubscription
 
     #[ORM\Column]
     private ?\DateTimeImmutable $createdAt = null;
+
+    #[ORM\Column(length: 64, unique: true)]
+    private ?string $endpointHash = null;
 
     public function getId(): ?int
     {
@@ -61,7 +64,7 @@ class PushSubscription
     public function setEndpoint(string $endpoint): static
     {
         $this->endpoint = $endpoint;
-
+        $this->endpointHash = hash('sha256', $endpoint);
         return $this;
     }
 
@@ -121,6 +124,18 @@ class PushSubscription
     public function setCreatedAt(\DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
+
+        return $this;
+    }
+
+    public function getEndpointHash(): ?string
+    {
+        return $this->endpointHash;
+    }
+
+    public function setEndpointHash(string $endpointHash): static
+    {
+        $this->endpointHash = $endpointHash;
 
         return $this;
     }

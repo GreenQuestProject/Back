@@ -8,10 +8,8 @@ use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
-
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-
 
 final class PushControllerTest extends WebTestCase
 {
@@ -22,14 +20,11 @@ final class PushControllerTest extends WebTestCase
     private User $otherUser;
     private string $jwt = '';
 
-    /**
-     * @throws \JsonException
-     */
     protected function setUp(): void
     {
         self::ensureKernelShutdown();
-        $this->client = PushControllerTest::createClient();
-        $c = PushControllerTest::getContainer();
+        $this->client = self::createClient();
+        $c = self::getContainer();
 
         $this->em     = $c->get(EntityManagerInterface::class);
         $hasher = $c->get(UserPasswordHasherInterface::class);
@@ -59,9 +54,6 @@ final class PushControllerTest extends WebTestCase
         self::assertNotSame('', $this->jwt);
     }
 
-    /**
-     * @throws \JsonException
-     */
     private function getJwtToken(string $username, string $password): string
     {
         $this->client->request(
@@ -88,7 +80,7 @@ final class PushControllerTest extends WebTestCase
     {
         $s = (new PushSubscription())
             ->setUser($user)
-            ->setEndpoint($endpoint)
+            ->setEndpoint($endpoint) // <-- calcule endpointHash dans le setter
             ->setP256dh('p256')
             ->setAuth('auth')
             ->setEncoding('aes128gcm')
@@ -100,13 +92,11 @@ final class PushControllerTest extends WebTestCase
         return $s;
     }
 
-    /**
-     * @throws \JsonException
-     */
     public function testSubscribeCreatesNewSubscription(): void
     {
+        $endpoint = 'https://push.example/ep-1';
         $payload = [
-            'endpoint' => 'https://push.example/ep-1',
+            'endpoint' => $endpoint,
             'keys' => ['p256dh' => 'k1', 'auth' => 'a1'],
         ];
 
@@ -120,7 +110,8 @@ final class PushControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
         /** @var PushSubscription|null $sub */
-        $sub = $this->em->getRepository(PushSubscription::class)->findOneBy(['endpoint' => 'https://push.example/ep-1']);
+        $sub = $this->em->getRepository(PushSubscription::class)
+            ->findOneBy(['endpointHash' => hash('sha256', $endpoint)]);
         self::assertNotNull($sub);
         self::assertSame($this->user->getId(), $sub->getUser()->getId());
         self::assertSame('k1', $sub->getP256dh());
@@ -130,10 +121,7 @@ final class PushControllerTest extends WebTestCase
         self::assertInstanceOf(\DateTimeImmutable::class, $sub->getCreatedAt());
     }
 
-    /**
-     * @throws \JsonException
-     */
-    public function testSubscribeUpdatesExistingByEndpoint(): void
+    public function testSubscribeUpdatesExistingByEndpointHash(): void
     {
         // existant pour le même endpoint
         $endpoint = 'https://push.example/dupe';
@@ -149,10 +137,12 @@ final class PushControllerTest extends WebTestCase
             ], JSON_THROW_ON_ERROR)
         );
 
-        self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
+        // ⬇️ mise à jour => 200 OK (et plus 201)
+        self::assertResponseStatusCodeSame(Response::HTTP_OK);
 
         /** @var PushSubscription $sub */
-        $sub = $this->em->getRepository(PushSubscription::class)->findOneBy(['endpoint' => $endpoint]);
+        $sub = $this->em->getRepository(PushSubscription::class)
+            ->findOneBy(['endpointHash' => hash('sha256', $endpoint)]);
         self::assertNotNull($sub);
         // on a mis à jour le même enregistrement
         self::assertSame($existing->getId(), $sub->getId());
@@ -161,22 +151,21 @@ final class PushControllerTest extends WebTestCase
         self::assertTrue($sub->isActive());
     }
 
-    /**
-     * @throws \JsonException
-     */
     public function testSubscribeWithMissingKeysDefaults(): void
     {
+        $endpoint = 'https://push.example/no-keys';
         $this->client->request(
             'POST',
             '/api/push/subscribe',
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
-            content: json_encode(['endpoint' => 'https://push.example/no-keys'], JSON_THROW_ON_ERROR)
+            content: json_encode(['endpoint' => $endpoint], JSON_THROW_ON_ERROR)
         );
 
         self::assertResponseStatusCodeSame(Response::HTTP_CREATED);
 
         /** @var PushSubscription $sub */
-        $sub = $this->em->getRepository(PushSubscription::class)->findOneBy(['endpoint' => 'https://push.example/no-keys']);
+        $sub = $this->em->getRepository(PushSubscription::class)
+            ->findOneBy(['endpointHash' => hash('sha256', $endpoint)]);
         self::assertSame('', $sub->getP256dh());
         self::assertSame('', $sub->getAuth());
         self::assertSame('aes128gcm', $sub->getEncoding());
@@ -185,12 +174,12 @@ final class PushControllerTest extends WebTestCase
     public function testUnsubscribeDeactivatesOnlyCurrentUserActiveSubscriptions(): void
     {
         // user courant
-        $this->createSub($this->user, 'ep-a', true);
-        $this->createSub($this->user, 'ep-b', true);
-        $this->createSub($this->user, 'ep-old', false);
+        $this->createSub($this->user, 'https://push.example/ep-a', true);
+        $this->createSub($this->user, 'https://push.example/ep-b', true);
+        $this->createSub($this->user, 'https://push.example/ep-old', false);
 
         // autre user
-        $this->createSub($this->otherUser, 'ep-foreign', true);
+        $this->createSub($this->otherUser, 'https://push.example/ep-foreign', true);
 
         $this->client->request('POST', '/api/push/unsubscribe', server: $this->authHeaders());
 
@@ -202,16 +191,15 @@ final class PushControllerTest extends WebTestCase
             self::assertFalse($s->isActive(), 'Tous les subs du user doivent être inactifs');
         }
 
-        // Ne doit pas impacter les autres
         /** @var PushSubscription $foreign */
-        $foreign = $repo->findOneBy(['user' => $this->otherUser, 'endpoint' => 'ep-foreign']);
+        $foreign = $repo->findOneBy(['endpointHash' => hash('sha256', 'https://push.example/ep-foreign')]);
         self::assertTrue($foreign->isActive());
     }
 
     public function testUnsubscribeWhenNoActiveSubscriptions(): void
     {
         // Aucun sub actif pour l'utilisateur courant
-        $this->createSub($this->user, 'ep-inactive', false);
+        $this->createSub($this->user, 'https://push.example/ep-inactive', false);
 
         $this->client->request('POST', '/api/push/unsubscribe', server: $this->authHeaders());
 

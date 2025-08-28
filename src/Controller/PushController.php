@@ -21,25 +21,37 @@ final class PushController extends AbstractController
      */
     #[Route('api/push/subscribe', name: 'push_subscribe', methods: ['POST'])]
     public function subscribe(Request $req): JsonResponse {
-        $payload = json_decode($req->getContent(), true);
-
-        $endpoint = $payload['endpoint'];
+        $payload = json_decode($req->getContent(), true) ?? [];
+        $endpoint = $payload['endpoint'] ?? null;
         $keys = $payload['keys'] ?? [];
 
-        $sub = $this->em->getRepository(PushSubscription::class)
-            ->findOneBy(['endpoint' => $endpoint]) ?? new PushSubscription();
+        if (!$endpoint) {
+            return new JsonResponse(['error' => 'Missing endpoint'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $hash = hash('sha256', $endpoint);
+
+        $repo = $this->em->getRepository(PushSubscription::class);
+        $sub  = $repo->findOneBy(['endpointHash' => $hash]);
+
+        $isNew = false;
+        if (!$sub) {
+            $sub = new PushSubscription();
+            $isNew = true;
+            $sub->setCreatedAt(new DateTimeImmutable());
+        }
+
         $sub->setUser($this->getUser());
-        $sub->setEndpoint($endpoint);
+        $sub->setEndpoint($endpoint);                 // <-- met aussi à jour endpointHash
         $sub->setP256dh($keys['p256dh'] ?? '');
         $sub->setAuth($keys['auth'] ?? '');
-        $sub->setEncoding('aes128gcm');
+        $sub->setEncoding('aes128gcm');               // ok, mais optionnel (voir note)
         $sub->setActive(true);
-        $sub->setCreatedAt(new DateTimeImmutable());
 
         $this->em->persist($sub);
         $this->em->flush();
 
-        return new JsonResponse(null, Response::HTTP_CREATED);
+        return new JsonResponse(null, $isNew ? Response::HTTP_CREATED : Response::HTTP_OK);
     }
 
     /**
