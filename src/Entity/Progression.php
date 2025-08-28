@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Enum\ChallengeStatus;
 use App\Repository\ProgressionRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 
@@ -40,6 +42,17 @@ class Progression
     #[ORM\Column(type: 'datetime', nullable: true)]
     #[Groups(["getAll"])]
     private ?\DateTimeInterface $completedAt = null;
+
+    /**
+     * @var Collection<int, Reminder>
+     */
+    #[ORM\OneToMany(targetEntity: Reminder::class, mappedBy: 'progression', orphanRemoval: true)]
+    private Collection $reminders;
+
+    public function __construct()
+    {
+        $this->reminders = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -115,5 +128,45 @@ class Progression
     {
         $this->completedAt = $completedAt;
         return $this;
+    }
+
+    /**
+     * @return Collection<int, Reminder>
+     */
+    public function getReminders(): Collection
+    {
+        return $this->reminders;
+    }
+
+    public function addReminder(Reminder $reminder): static
+    {
+        if (!$this->reminders->contains($reminder)) {
+            $this->reminders->add($reminder);
+            $reminder->setProgression($this);
+        }
+
+        return $this;
+    }
+
+    public function removeReminder(Reminder $reminder): static
+    {
+        if ($this->reminders->removeElement($reminder)) {
+            // set the owning side to null (unless already changed)
+            if ($reminder->getProgression() === $this) {
+                $reminder->setProgression(null);
+            }
+        }
+
+        return $this;
+    }
+
+    public function getActiveReminder(): ?Reminder
+    {
+        foreach ($this->reminders as $r) {
+            if ($r->isActive()) {
+                return $r;
+            }
+        }
+        return null;
     }
 }

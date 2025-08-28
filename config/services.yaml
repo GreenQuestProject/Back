@@ -20,5 +20,11 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
+    App\Service\PushSender:
+        arguments:
+            $public: '%env(VAPID_PUBLIC_KEY)%'
+            $private: '%env(VAPID_PRIVATE_KEY)%'
+            $subject: '%env(VAPID_SUBJECT)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

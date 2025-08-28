@@ -54,6 +54,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'user', cascade: ['remove'], orphanRemoval: true)]
     private Collection $progressions;
 
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?NotificationPreference $notificationPreference = null;
+
     public function __construct()
     {
         $this->progressions = new ArrayCollection();
@@ -171,6 +174,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
                 $progression->setUser(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getNotificationPreference(): ?NotificationPreference
+    {
+        return $this->notificationPreference;
+    }
+
+    public function setNotificationPreference(NotificationPreference $notificationPreference): static
+    {
+        // set the owning side of the relation if necessary
+        if ($notificationPreference->getUser() !== $this) {
+            $notificationPreference->setUser($this);
+        }
+
+        $this->notificationPreference = $notificationPreference;
 
         return $this;
     }

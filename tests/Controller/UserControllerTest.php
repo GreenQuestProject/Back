@@ -26,6 +26,7 @@ final class UserControllerTest extends WebTestCase{
     protected function setUp(): void
     {
         //self::bootKernel(); // Lance le kernel Symfony
+        self::ensureKernelShutdown();
         $this->client = UserControllerTest::createClient();
         $this->entityManager = UserControllerTest::getContainer()->get(EntityManagerInterface::class);
         $this->passwordHasher = UserControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
