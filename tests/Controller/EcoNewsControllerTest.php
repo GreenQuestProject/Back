@@ -42,7 +42,7 @@ final class EcoNewsControllerTest extends WebTestCase
 
         // Crée/écrase le fichier de sources JSON
         $projectDir = static::getContainer()->getParameter('kernel.project_dir');
-        $this->sourcesPath = $projectDir . '/config/eco_news_sources.json';
+        $this->sourcesPath = $projectDir . '/public/eco_news_sources.json';
         @mkdir(\dirname($this->sourcesPath), 0777, true);
         file_put_contents($this->sourcesPath, json_encode([
             'feeds' => [
