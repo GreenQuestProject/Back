@@ -57,9 +57,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?NotificationPreference $notificationPreference = null;
 
+    /**
+     * @var Collection<int, XpLedger>
+     */
+    #[ORM\OneToMany(targetEntity: XpLedger::class, mappedBy: 'user')]
+    private Collection $xpLedgers;
+
+    /**
+     * @var Collection<int, BadgeUnlock>
+     */
+    #[ORM\OneToMany(targetEntity: BadgeUnlock::class, mappedBy: 'user')]
+    private Collection $badgeUnlocks;
+
     public function __construct()
     {
         $this->progressions = new ArrayCollection();
+        $this->xpLedgers = new ArrayCollection();
+        $this->badgeUnlocks = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -191,6 +205,66 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         }
 
         $this->notificationPreference = $notificationPreference;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, XpLedger>
+     */
+    public function getXpLedgers(): Collection
+    {
+        return $this->xpLedgers;
+    }
+
+    public function addXpLedger(XpLedger $xpLedger): static
+    {
+        if (!$this->xpLedgers->contains($xpLedger)) {
+            $this->xpLedgers->add($xpLedger);
+            $xpLedger->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeXpLedger(XpLedger $xpLedger): static
+    {
+        if ($this->xpLedgers->removeElement($xpLedger)) {
+            // set the owning side to null (unless already changed)
+            if ($xpLedger->getUser() === $this) {
+                $xpLedger->setUser(null);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, BadgeUnlock>
+     */
+    public function getBadgeUnlocks(): Collection
+    {
+        return $this->badgeUnlocks;
+    }
+
+    public function addBadgeUnlock(BadgeUnlock $badgeUnlock): static
+    {
+        if (!$this->badgeUnlocks->contains($badgeUnlock)) {
+            $this->badgeUnlocks->add($badgeUnlock);
+            $badgeUnlock->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBadgeUnlock(BadgeUnlock $badgeUnlock): static
+    {
+        if ($this->badgeUnlocks->removeElement($badgeUnlock)) {
+            // set the owning side to null (unless already changed)
+            if ($badgeUnlock->getUser() === $this) {
+                $badgeUnlock->setUser(null);
+            }
+        }
 
         return $this;
     }

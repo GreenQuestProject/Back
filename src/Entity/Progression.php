@@ -8,6 +8,7 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProgressionRepository::class)]
 class Progression
@@ -49,9 +50,23 @@ class Progression
     #[ORM\OneToMany(targetEntity: Reminder::class, mappedBy: 'progression', orphanRemoval: true)]
     private Collection $reminders;
 
+    #[ORM\Column(options: ['default' => 0])]
+    private ?int $pointsAwarded = 0;
+
+    #[ORM\Column(options: ['default' => 0])]
+    #[Assert\GreaterThanOrEqual(0)]
+    private ?int $repetitionIndex = 0;
+
+    /**
+     * @var Collection<int, ProgressionEvent>
+     */
+    #[ORM\OneToMany(targetEntity: ProgressionEvent::class, mappedBy: 'progression')]
+    private Collection $progressionEvents;
+
     public function __construct()
     {
         $this->reminders = new ArrayCollection();
+        $this->progressionEvents = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -168,5 +183,59 @@ class Progression
             }
         }
         return null;
+    }
+
+    public function getPointsAwarded(): ?int
+    {
+        return $this->pointsAwarded;
+    }
+
+    public function setPointsAwarded(int $pointsAwarded): static
+    {
+        $this->pointsAwarded = $pointsAwarded;
+
+        return $this;
+    }
+
+    public function getRepetitionIndex(): ?int
+    {
+        return $this->repetitionIndex;
+    }
+
+    public function setRepetitionIndex(int $repetitionIndex): static
+    {
+        $this->repetitionIndex = $repetitionIndex;
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, ProgressionEvent>
+     */
+    public function getProgressionEvents(): Collection
+    {
+        return $this->progressionEvents;
+    }
+
+    public function addProgressionEvent(ProgressionEvent $progressionEvent): static
+    {
+        if (!$this->progressionEvents->contains($progressionEvent)) {
+            $this->progressionEvents->add($progressionEvent);
+            $progressionEvent->setProgression($this);
+        }
+
+        return $this;
+    }
+
+    public function removeProgressionEvent(ProgressionEvent $progressionEvent): static
+    {
+        if ($this->progressionEvents->removeElement($progressionEvent)) {
+            // set the owning side to null (unless already changed)
+            if ($progressionEvent->getProgression() === $this) {
+                $progressionEvent->setProgression(null);
+            }
+        }
+
+        return $this;
     }
 }

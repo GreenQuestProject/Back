@@ -41,6 +41,26 @@ class Challenge
     #[ORM\OneToMany(targetEntity: Progression::class, mappedBy: 'challenge', cascade: ['remove'], orphanRemoval: true)]
     private Collection $progressions;
 
+    #[ORM\Column(type: 'smallint', options: ['default' => 1])]
+    #[Assert\Range(min:1, max:5)]
+    private ?int $difficulty = 1;
+
+    #[ORM\Column(options: ['default' => 50])]
+    #[Assert\Positive]
+    private ?int $basePoints = 50;
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    private ?string $co2EstimateKg = '0';
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    private ?string $waterEstimateL = '0';
+
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    private ?string $wasteEstimateKg = '0';
+
+    #[ORM\Column(options: ['default' => true])]
+    private ?bool $isRepeatable = true;
+
     public function __construct()
     {
         $this->progressions = new ArrayCollection();
@@ -115,5 +135,82 @@ class Challenge
 
         return $this;
     }
+
+    public function getDifficulty(): ?int
+    {
+        return $this->difficulty;
+    }
+
+    public function setDifficulty(int $difficulty): static
+    {
+        $this->difficulty = $difficulty;
+
+        return $this;
+    }
+
+    public function getBasePoints(): ?int
+    {
+        return $this->basePoints;
+    }
+
+    public function setBasePoints(int $basePoints): static
+    {
+        $this->basePoints = $basePoints;
+
+        return $this;
+    }
+
+    public function getCo2EstimateKg(): ?string
+    {
+        return $this->co2EstimateKg;
+    }
+
+    public function setCo2EstimateKg(string $co2EstimateKg): static
+    {
+        $this->co2EstimateKg = $co2EstimateKg;
+
+        return $this;
+    }
+
+    public function getWaterEstimateL(): ?string
+    {
+        return $this->waterEstimateL;
+    }
+
+    public function setWaterEstimateL(string $waterEstimateL): static
+    {
+        $this->waterEstimateL = $waterEstimateL;
+
+        return $this;
+    }
+
+    public function getWasteEstimateKg(): ?string
+    {
+        return $this->wasteEstimateKg;
+    }
+
+    public function setWasteEstimateKg(string $wasteEstimateKg): static
+    {
+        $this->wasteEstimateKg = $wasteEstimateKg;
+
+        return $this;
+    }
+
+    public function isRepeatable(): ?bool
+    {
+        return $this->isRepeatable;
+    }
+
+    public function setIsRepeatable(bool $isRepeatable): static
+    {
+        $this->isRepeatable = $isRepeatable;
+
+        return $this;
+    }
+
+    public function getCo2EstimateKgFloat(): float { return (float)$this->co2EstimateKg; }
+    public function getWaterEstimateLFloat(): float { return (float)$this->waterEstimateL; }
+    public function getWasteEstimateKgFloat(): float { return (float)$this->wasteEstimateKg; }
+
 
 }
