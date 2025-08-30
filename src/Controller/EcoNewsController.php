@@ -27,7 +27,8 @@ final class EcoNewsController extends AbstractController
         $sourcesFilter = array_values(array_filter(array_map('trim', explode(',', (string) $request->query->get('sources', '')))));
 
 
-        $sourcesPath = $this->getParameter('kernel.project_dir') . '/publicgit reset --soft HEAD~1/eco_news_sources.json';
+        $sourcesPath = $this->getParameter('app.eco_news_sources_path')
+            ?? $this->getParameter('kernel.project_dir') . '/public/eco_news_sources.json';
         $json = @file_get_contents($sourcesPath);
         if ($json === false) {
             return $this->json(['error' => 'Impossible de lire le fichier des sources.'], 500);

@@ -42,14 +42,21 @@ final class EcoNewsControllerTest extends WebTestCase
 
         // Crée/écrase le fichier de sources JSON
         $projectDir = static::getContainer()->getParameter('kernel.project_dir');
-        $this->sourcesPath = $projectDir . '/public/eco_news_sources.json';
+
+        $sourcesParam = static::getContainer()->hasParameter('app.eco_news_sources_path')
+            ? static::getContainer()->getParameter('app.eco_news_sources_path')
+            : $projectDir . '/var/tests/eco_news_sources.json';
+
+        $this->sourcesPath = $sourcesParam;
+
         @mkdir(\dirname($this->sourcesPath), 0777, true);
-        file_put_contents($this->sourcesPath, json_encode([
-            'feeds' => [
+        file_put_contents(
+            $this->sourcesPath,
+            json_encode(['feeds' => [
                 'https://fake-rss.local/one.xml',
                 'https://fake-rss.local/two.xml',
-            ],
-        ], JSON_UNESCAPED_SLASHES));
+            ]], JSON_UNESCAPED_SLASHES)
+        );
 
         // Stub du fetcher (pas de HTTP réel)
         static::getContainer()->set(RssFetcherInterface::class, new class implements RssFetcherInterface {
