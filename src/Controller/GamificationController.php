@@ -21,18 +21,25 @@ final class GamificationController extends AbstractController
     #[Route('/api/gamification/profile', methods: ['GET'])]
     public function profile(): JsonResponse
     {
-        /** @var \App\Entity\User $user */
-        $user = $this->getUser();
-        $xp   = $this->ledger->totalXp($user);
+        /** @var \App\Entity\User $user */ $user = $this->getUser();
 
-        $xpToReach = fn (int $lvl) => (int)round(100 * ($lvl ** 2));
+        $xp = $this->ledger->totalXp($user);
+        $xpToReach = fn (int $lvl) => (int) round(100 * ($lvl ** 2));
         $level = 1; while ($xp >= $xpToReach($level + 1)) $level++;
 
+        $impact = $this->progressions->userImpact($user);
+
         return $this->json([
-            'xpTotal' => $xp,
-            'level' => $level,
-            'badges' => $this->badgeUnlocks->listForUser($user),
+            'xpTotal'           => $xp,
+            'level'             => $level,
+            'badges'            => $this->badgeUnlocks->listForUser($user),
             'currentStreakDays' => $this->progressions->currentStreakDays($user),
+            'completedCount'    => $impact['completedCount'],
+            'impact'            => [
+                'co2Kg'   => $impact['co2Kg'],
+                'waterL'  => $impact['waterL'],
+                'wasteKg' => $impact['wasteKg'],
+            ],
         ]);
     }
 

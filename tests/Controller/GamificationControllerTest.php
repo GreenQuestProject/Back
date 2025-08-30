@@ -307,4 +307,35 @@ final class GamificationControllerTest extends WebTestCase
         $this->assertSame($countAfter, $countAfter2, 'Aucune nouvelle entrée XpLedger ne doit être créée au second claim');
     }
 
+    public function testProfileIncludesImpactAndCompletedCount(): void
+    {
+        $token = $this->jwtFor('admin@example.com');
+
+        $this->client->request(
+            'GET',
+            '/api/gamification/profile',
+            server: ['HTTP_Authorization' => 'Bearer ' . $token]
+        );
+
+        $this->assertResponseIsSuccessful();
+        $json = json_decode($this->client->getResponse()->getContent(), true, JSON_THROW_ON_ERROR);
+
+        // Champs présents
+        $this->assertArrayHasKey('completedCount', $json);
+        $this->assertArrayHasKey('impact', $json);
+        $this->assertIsArray($json['impact']);
+        $this->assertArrayHasKey('co2Kg', $json['impact']);
+        $this->assertArrayHasKey('waterL', $json['impact']);
+        $this->assertArrayHasKey('wasteKg', $json['impact']);
+
+        // seed: 5 progressions complétées pour admin
+        $this->assertSame(5, (int)$json['completedCount']);
+
+        // Par défaut, le Challenge n’avait pas d’estimations renseignées → 0.0
+        $this->assertSame(0.0, (float)$json['impact']['co2Kg']);
+        $this->assertSame(0.0, (float)$json['impact']['waterL']);
+        $this->assertSame(0.0, (float)$json['impact']['wasteKg']);
+    }
+
+
 }

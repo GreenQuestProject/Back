@@ -238,6 +238,28 @@ class ProgressionRepository extends ServiceEntityRepository
             ->getQuery()->getSingleScalarResult();
     }
 
+    public function userImpact(User $user): array
+    {
+        $row = $this->createQueryBuilder('p')
+            ->select(
+                'COALESCE(SUM(c.co2EstimateKg), 0) AS co2Kg',
+                'COALESCE(SUM(c.waterEstimateL), 0) AS waterL',
+                'COALESCE(SUM(c.wasteEstimateKg), 0) AS wasteKg',
+                'COUNT(p.id) AS completedCount'
+            )
+            ->join('p.challenge', 'c')
+            ->andWhere('p.user = :u')->setParameter('u', $user)
+            ->andWhere('p.status = :s')->setParameter('s', ChallengeStatus::COMPLETED->value)
+            ->getQuery()->getSingleResult();
+
+        return [
+            'completedCount' => (int)($row['completedCount'] ?? 0),
+            'co2Kg'          => (float)($row['co2Kg'] ?? 0),
+            'waterL'         => (float)($row['waterL'] ?? 0),
+            'wasteKg'        => (float)($row['wasteKg'] ?? 0),
+        ];
+    }
+
 
 //    /**
 //     * @return Progression[] Returns an array of Progression objects
