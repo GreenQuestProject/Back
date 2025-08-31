@@ -11,7 +11,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\HttpFoundation\Request;
 
-#[IsGranted('ROLE_ADMIN')]
+
 final class AnalyticsController extends AbstractController
 {
     public function __construct(private ProgressionRepository $progressions,
