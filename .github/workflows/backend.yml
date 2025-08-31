@@ -203,6 +203,9 @@ jobs:
               docker compose exec -T backend-staging php bin/console cache:clear --env=prod && break
               echo "retry cache:clear $i"; i=$((i+1)); sleep 3
             done
+            
+            docker compose pull backend-staging-cron || true
+            docker compose up -d --no-deps --pull always --force-recreate backend-staging-cron
   
   
 
@@ -275,3 +278,6 @@ jobs:
               docker compose exec -T backend php bin/console cache:clear --env=prod && break
               echo "retry cache:clear $i"; i=$((i+1)); sleep 3
             done
+            
+            docker compose pull backend-cron || true
+            docker compose up -d --no-deps --pull always --force-recreate backend-cron
