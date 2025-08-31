@@ -78,7 +78,7 @@ final class ReminderController extends AbstractController
         } elseif ($rem->getRecurrence()==='WEEKLY') {
             $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1W')));
         } else {
-            $rem->setActive(false);
+            $this->em->remove($rem);
         }
         $this->em->flush();
         return $this->json(['ok'=>true]);
