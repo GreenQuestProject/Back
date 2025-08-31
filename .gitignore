@@ -75,3 +75,6 @@
 .idea/
 config/jwt/
 /coverage/
+/check_feeds.py
+/private.pem.b64
+/public.pem.b64

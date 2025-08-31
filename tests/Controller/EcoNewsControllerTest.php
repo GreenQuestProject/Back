@@ -27,7 +27,6 @@ final class EcoNewsControllerTest extends WebTestCase
 
         // Nettoyage si besoin (sécurité en cas de test planté précédemment)
         $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge')->execute();
 
         // Créer un user
         $user = (new User())
