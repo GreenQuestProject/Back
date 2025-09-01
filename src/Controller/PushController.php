@@ -10,10 +10,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
 use App\Entity\PushSubscription;
-
+use App\Service\PushSender;
 final class PushController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $em) {}
+    public function __construct(private readonly EntityManagerInterface $em, private readonly PushSender $push) {}
 
     /**
      * @param Request $req
@@ -65,4 +65,27 @@ final class PushController extends AbstractController
         $this->em->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
+
+    #[Route('/api/push/debug-now', methods:['POST'])]
+    public function debugNow(): JsonResponse {
+        $u = $this->getUser();
+        $subs = $this->em->getRepository(PushSubscription::class)->findBy(['user'=>$u, 'active'=>true]);
+        if (!$subs) return $this->json(['error'=>'no subs'], 404);
+
+        $payload = [
+            'title' => 'DEBUG',
+            'body'  => 'Push immédiat depuis le serveur',
+            'data'  => ['url' => '/', 'reminderId' => 0],
+            'actions' => [
+                ['action'=>'open','title'=>'Ouvrir'],
+                ['action'=>'done','title'=>'Fait'],
+                ['action'=>'snooze','title'=>'Plus tard'],
+            ],
+            'tag' => 'debug-'.time(), 'renotify' => true, 'requireInteraction' => true
+        ];
+
+        $reports = $this->push->sendWithReport($subs, $payload); // cf. étape 3
+        return $this->json(['reports'=>$reports]);
+    }
+
 }
