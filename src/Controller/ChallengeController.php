@@ -219,18 +219,25 @@ final class ChallengeController extends AbstractController
 
         $userProgressions = $progressionRepo->findBy(['user' => $user]);
 
-        $challengeIdsWithProgression = array_unique(array_filter(array_map(
-            fn(Progression $progression) => $progression->getChallenge()?->getId(),
+        $activeStatuses = [ChallengeStatus::IN_PROGRESS];
+
+        $challengeIdsWithActiveProgression = array_unique(array_filter(array_map(
+            function (Progression $p) use ($activeStatuses) {
+                if (!in_array($p->getStatus(), $activeStatuses, true)) {
+                    return null;
+                }
+                return $p->getChallenge()?->getId();
+            },
             $userProgressions
         )));
 
-        $data = array_map(function (Challenge $challenge) use ($challengeIdsWithProgression) {
+        $data = array_map(function (Challenge $challenge) use ($challengeIdsWithActiveProgression) {
             return [
                 'id' => $challenge->getId(),
                 'name' => $challenge->getName(),
                 'description' => $challenge->getDescription(),
                 'category' => $challenge->getCategory(),
-                'isInUserProgression' => in_array($challenge->getId(), $challengeIdsWithProgression),
+                'isInUserProgression' => in_array($challenge->getId(), $challengeIdsWithActiveProgression),
             ];
         }, is_array($challenges) ? $challenges : iterator_to_array($challenges));
 

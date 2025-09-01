@@ -43,22 +43,28 @@ class Challenge
 
     #[ORM\Column(type: 'smallint', options: ['default' => 1])]
     #[Assert\Range(min:1, max:5)]
+    #[Groups(["getAll"])]
     private ?int $difficulty = 1;
 
     #[ORM\Column(options: ['default' => 50])]
     #[Assert\Positive]
+    #[Groups(["getAll"])]
     private ?int $basePoints = 50;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    #[Groups(["getAll"])]
     private ?string $co2EstimateKg = '0';
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    #[Groups(["getAll"])]
     private ?string $waterEstimateL = '0';
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 3, options: ['default' => 0])]
+    #[Groups(["getAll"])]
     private ?string $wasteEstimateKg = '0';
 
     #[ORM\Column(options: ['default' => true])]
+    #[Groups(["getAll"])]
     private ?bool $isRepeatable = true;
 
     public function __construct()
