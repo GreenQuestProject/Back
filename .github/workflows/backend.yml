@@ -176,9 +176,11 @@ jobs:
             BACKUP_DIR=/var/backups/mysql
             mkdir -p "$BACKUP_DIR"
             TS=$(date +%F-%H%M)
+            BACKUP_FILE="$BACKUP_DIR/greenquest_staging-$TS.sql.gz"
+
             docker exec greenquest-db-staging sh -lc \
               "mysqldump -u\"$MYSQL_DUMP_USER\" -p\"$MYSQL_DUMP_PASSWORD_STAGING\" --single-transaction --routines --triggers greenquest_staging" \
-              | gzip > "$BACKUP_DIR/greenquest_staging-$TS.sql.gz" || { echo "Backup failed"; exit 1; }
+              | gzip > "$BACKUP_FILE" || { echo "Backup failed"; exit 1; }
 
             docker compose up -d --no-deps --pull always --force-recreate backend-staging
 
@@ -194,8 +196,15 @@ jobs:
               *) echo "ATTENTION: URL BDD inattendue pour staging, abort"; exit 1;;
             esac
 
+            if docker compose exec -T backend-staging php bin/console doctrine:migrations:up-to-date --no-interaction >/dev/null 2>&1; then
+              echo "Aucune migration à exécuter (staging) — aucune purge de backups."
+            else
+              echo "Migrations détectées (staging) — purge des anciennes sauvegardes..."
+              find "$BACKUP_DIR" -maxdepth 1 -type f -name 'greenquest_staging-*.sql.gz' ! -name "$(basename "$BACKUP_FILE")" -delete || true
+            fi
+
             i=1; while [ $i -le 10 ]; do
-              docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration  && break
+              docker compose exec -T backend-staging php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && break
               echo "retry migrate $i"; i=$((i+1)); sleep 3
             done
 
@@ -249,9 +258,11 @@ jobs:
             BACKUP_DIR=/var/backups/mysql
             mkdir -p "$BACKUP_DIR"
             TS=$(date +%F-%H%M)
+            BACKUP_FILE="$BACKUP_DIR/greenquest-$TS.sql.gz"
+
             docker exec greenquest-db sh -lc \
               "mysqldump -u\"$MYSQL_DUMP_USER\" -p\"$MYSQL_DUMP_PASSWORD_PROD\" --single-transaction --routines --triggers greenquest" \
-              | gzip > "$BACKUP_DIR/greenquest-$TS.sql.gz" || { echo 'Backup failed'; exit 1; }
+              | gzip > "$BACKUP_FILE" || { echo 'Backup failed'; exit 1; }
 
             docker compose up -d --no-deps --pull always --force-recreate backend
 
@@ -267,8 +278,15 @@ jobs:
               *) echo "ATTENTION: URL BDD inattendue pour prod, abort"; exit 1;;
             esac
 
+            if docker compose exec -T backend php bin/console doctrine:migrations:up-to-date --no-interaction >/dev/null 2>&1; then
+              echo "Aucune migration à exécuter (prod) — aucune purge de backups."
+            else
+              echo "Migrations détectées (prod) — purge des anciennes sauvegardes..."
+              find "$BACKUP_DIR" -maxdepth 1 -type f -name 'greenquest-*.sql.gz' ! -name "$(basename "$BACKUP_FILE")" -delete || true
+            fi
+
             i=1; while [ $i -le 10 ]; do
-              docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration  && break
+              docker compose exec -T backend php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration && break
               echo "retry migrate $i"; i=$((i+1)); sleep 3
             done
 
