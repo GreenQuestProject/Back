@@ -11,6 +11,10 @@ on:
 env:
   IMAGE: kteyssere/greenquest-backend
 
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -50,7 +54,7 @@ jobs:
           --health-cmd="mysqladmin ping --silent"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=3
+          --health-retries=5
 
     steps:
       - name: Checkout du code
@@ -74,10 +78,20 @@ jobs:
       - name: Installer les dépendances
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
+      - name: Attendre MySQL (port ouvert + auth OK)
+        env:
+          MYSQL_PWD: root
+        run: |
+          for i in {1..30}; do
+            mysqladmin ping -h 127.0.0.1 -uroot && break
+            echo "MySQL pas prêt ($i)"; sleep 2
+          done
+          mysql -h 127.0.0.1 -uroot -e 'SELECT VERSION();'
+
       - name: Supprimer le schéma
         env:
           DATABASE_URL: mysql://root:root@127.0.0.1:3306/greenquest_test
-        run: php bin/console doctrine:schema:drop --force --full-database --no-interaction
+        run: php bin/console doctrine:schema:drop --force --full-database --no-interaction || true
 
       - name: Créer les tables avec Doctrine
         env:
@@ -100,10 +114,35 @@ jobs:
           mkdir -p build/logs
           php vendor/bin/phpunit --coverage-clover build/logs/clover.xml
 
+      # --- Pré-requis Sonar: Java & cache du scanner engine ---
+      - name: Setup Java 17 (pour Sonar)
+        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Définir SONAR_USER_HOME
+        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+        run: echo "SONAR_USER_HOME=$HOME/.sonar" >> $GITHUB_ENV
+
+      - name: Cache Sonar (~/.sonar/cache)
+        if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.SONAR_USER_HOME }}/cache
+          key: sonar-cache-${{ runner.os }}-v1
+          restore-keys: |
+            sonar-cache-${{ runner.os }}-
+
       # --- SONARQUBE SCAN ---
       - name: SonarQube Scan for dev
         if: github.ref == 'refs/heads/develop'
         uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_DEV }}
+          SONAR_USER_HOME: ${{ env.SONAR_USER_HOME }}
         with:
           args: >
             -Dsonar.projectKey=back-dev
@@ -114,13 +153,14 @@ jobs:
             -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
             -Dsonar.coverage.exclusions=src/DataFixtures/**,src/Entity/**
             -Dsonar.projectBaseDir=.
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_DEV }}
 
       - name: SonarQube Scan for main
         if: github.ref == 'refs/heads/main'
         uses: SonarSource/sonarqube-scan-action@v5
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_USER_HOME: ${{ env.SONAR_USER_HOME }}
         with:
           args: >
             -Dsonar.projectKey=back
@@ -130,11 +170,6 @@ jobs:
             -Dsonar.php.coverage.reportPaths=build/logs/clover.xml
             -Dsonar.exclusions=var/**,vendor/**,public/bundles/**
             -Dsonar.projectBaseDir=.
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-
 
   deploy_staging:
     runs-on: ubuntu-latest
@@ -206,8 +241,6 @@ jobs:
             
             docker compose pull backend-staging-cron || true
             docker compose up -d --no-deps --pull always --force-recreate backend-staging-cron
-  
-  
 
   deploy_prod:
     runs-on: ubuntu-latest
@@ -259,7 +292,7 @@ jobs:
 
             i=1; DB_URL=""
             while [ $i -le 10 ]; do
-              DB_URL=$(docker compose exec -T backend php -r 'echo getenv("DATABASE_URL");' 2>/dev/null || true)
+              DB_URL=$(docker compose exec -T backend php -r 'echo getenv(\"DATABASE_URL\");' 2>/dev/null || true)
               [ -n "$DB_URL" ] && break
               echo "Attente de backend... ($i)"; i=$((i+1)); sleep 3
             done
