@@ -23,43 +23,44 @@ class SendDueRemindersCommand extends Command
     {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
 
-// marge de +/- 30s
-        $from = $now->modify('-30 seconds');
-        $to = $now->modify('+30 seconds');
-
         $due = $this->em->createQueryBuilder()
             ->select('r, p, u')
             ->from(Reminder::class, 'r')
             ->join('r.progression', 'p')
             ->join('p.user', 'u')
-            ->where('r.active = 1 AND r.scheduledAtUtc BETWEEN :from AND :to')
-            ->setParameter('from', $from)->setParameter('to', $to)
+            ->where('r.active = 1 AND r.scheduledAtUtc <= :now')
+            ->setParameter('now', $now)
             ->getQuery()->getResult();
 
         foreach ($due as $rem) {
             $user = $rem->getProgression()->getUser();
-            $subs = $this->em->getRepository(PushSubscription::class)->findBy(['user'=>$user, 'active'=>true]);
+            $subs = $this->em->getRepository(PushSubscription::class)
+                ->findBy(['user' => $user, 'active' => true]);
 
             $challenge = $rem->getProgression()->getChallenge();
             $payload = [
                 'title' => 'Rappel défi',
                 'body'  => sprintf('Il est temps de faire : %s', $challenge->getName()),
-                'data'  => ['url' => '/defis/' . $challenge->getId(), 'reminderId' => $rem->getId()],
+                'data'  => ['url' => '/defis/'.$challenge->getId(), 'reminderId' => $rem->getId()],
                 'actions' => [
                     ['action'=>'open','title'=>'Ouvrir'],
                     ['action'=>'done','title'=>'Fait'],
                     ['action'=>'snooze','title'=>'Plus tard'],
                 ],
+                //évite la fusion silencieuse pendant les tests
+                'tag' => 'reminder-'.$rem->getId().'-'.time(), 'renotify' => true, 'requireInteraction' => true
             ];
+
             $this->push->send($subs, $payload);
 
-            // récurrence
-            if ($rem->getRecurrence()==='DAILY')      $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1D')));
-            elseif ($rem->getRecurrence()==='WEEKLY') $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1W')));
-            else                                      $rem->setActive(false);
+            // replanifie / désactive
+            if ($rem->getRecurrence()==='DAILY')       $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1D')));
+            elseif ($rem->getRecurrence()==='WEEKLY')  $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1W')));
+            else                                        $rem->setActive(false);
         }
-        $this->em->flush();
 
+        $this->em->flush();
         return Command::SUCCESS;
     }
+
 }
