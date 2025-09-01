@@ -123,12 +123,10 @@ final class ReminderControllerTest extends WebTestCase
         return $r;
     }
 
-    private function reloadReminder(int $id): ?Reminder
+    private function reloadReminder(int $id): Reminder
     {
         $this->em->clear();
-        /** @var Reminder|null $r */
-        $r = $this->em->getRepository(Reminder::class)->find($id);
-        return $r;
+        return $this->em->getRepository(Reminder::class)->find($id);
     }
 
     public function testCreateReminderSuccess(): void
@@ -268,7 +266,7 @@ final class ReminderControllerTest extends WebTestCase
         $this->assertSame('Invalid scheduledAt', $resp['error'] ?? null);
     }
 
-    public function testCompleteOneShotDeletes(): void
+    public function testCompleteOneShotDeactivates(): void
     {
         $when = new DateTimeImmutable('2025-01-01T09:00:00+00:00');
         $rem = $this->createReminder($this->progression, $when, 'NONE');
@@ -278,9 +276,9 @@ final class ReminderControllerTest extends WebTestCase
         $this->assertResponseIsSuccessful();
         $resp = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertTrue($resp['ok'] ?? false);
-        // L'entité doit être supprimée
-        $remReloaded = $this->reloadReminder($rem->getId());
-        $this->assertNull($remReloaded);
+        $rem = $this->reloadReminder($rem->getId());
+        $this->assertFalse($rem->isActive());
+        $this->assertEquals($when, $rem->getScheduledAtUtc());
     }
 
     public function testCompleteDailyMovesOneDay(): void

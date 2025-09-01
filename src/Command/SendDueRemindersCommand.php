@@ -56,7 +56,7 @@ class SendDueRemindersCommand extends Command
             // récurrence
             if ($rem->getRecurrence()==='DAILY')      $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1D')));
             elseif ($rem->getRecurrence()==='WEEKLY') $rem->setScheduledAtUtc($rem->getScheduledAtUtc()->add(new \DateInterval('P1W')));
-            else                                      $this->em->remove($rem);
+            else                                      $rem->setActive(false);
         }
         $this->em->flush();
 

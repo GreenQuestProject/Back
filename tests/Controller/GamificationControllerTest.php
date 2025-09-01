@@ -253,8 +253,8 @@ final class GamificationControllerTest extends WebTestCase
         $token = $this->jwtFor('admin@example.com');
 
         // setUp crée 5 complétions sur les 5 derniers jours -> semaine courante éligible
-        $today = new \DateTimeImmutable('today');
-        $code  = $this->weekCodeOf($today);
+        $eligibleDate = (new \DateTimeImmutable('today'))->modify('-2 days');
+        $code = $this->weekCodeOf($eligibleDate);
         $reason = 'quest:' . $code;
 
         // Compte initial des entrées ledger pour cette quête

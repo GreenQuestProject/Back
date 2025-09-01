@@ -198,8 +198,8 @@ final class AnalyticsControllerTest extends WebTestCase
         $this->entityManager->flush();
         $this->entityManager->clear();
 
-        $from = (new \DateTimeImmutable('-21 days'))->format('Y-m-d');
-        $to   = (new \DateTimeImmutable('today'))->format('Y-m-d');
+        $from = $base->modify('-14 days')->format('Y-m-d');      // large
+        $to   = $base->modify('+6 days')->format('Y-m-d');       //
 
         $this->client->request(
             'GET',
@@ -228,7 +228,7 @@ final class AnalyticsControllerTest extends WebTestCase
 
         // Vérifie qu'au moins une des semaines contient nos événements
         $hasCurrentWeek = false;
-        $isoKey = (new \DateTimeImmutable('today'))->format('o') . '-W' . (new \DateTimeImmutable('today'))->format('W');
+        $isoKey = $base->format('o') . '-W' . $base->format('W');
         foreach ($json as $row) {
             if ($row['week'] === $isoKey) {
                 $hasCurrentWeek = true;
