@@ -14,11 +14,11 @@ class NotificationPreference
     private ?int $id = null;
 
     #[ORM\OneToOne(inversedBy: 'notificationPreference', cascade: ['persist', 'remove'])]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
 
     #[ORM\Column]
-    private ?bool $newChallenge = null;
+    private ?bool $newChallenge = false;
 
     public function getId(): ?int
     {

@@ -4,7 +4,6 @@ namespace App\Controller;
 
 use App\Entity\Challenge;
 use App\Entity\Progression;
-use App\Entity\PushSubscription;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use App\Repository\ChallengeRepository;
@@ -82,10 +81,12 @@ final class ChallengeController extends AbstractController
         $entityManager->flush();
 
         $subs = $pushSubscriptionRepository->findActiveWithNewChallengeEnabled();
+        $frontendBaseUrl = rtrim($_ENV['FRONTEND_BASE_URL'] ?? $this->getParameter('app.frontend_base_url'), '/');
+
         $payload = [
-            'title' => 'Nouveau défi disponible 🎯',
+            'title' => 'Nouveau défi disponible',
             'body' => $challenge->getName(),
-            'data' => [ 'url' => '/defis/' . $challenge->getId() ]
+            'data' => [ 'url' => $frontendBaseUrl . '/défis/' ]
         ];
         $push->send($subs, $payload);
 
