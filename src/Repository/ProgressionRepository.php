@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Challenge;
 use App\Entity\Progression;
 use App\Entity\User;
 use App\Enum\ChallengeCategory;
@@ -260,6 +261,75 @@ class ProgressionRepository extends ServiceEntityRepository
         ];
     }
 
+    public function findInProgress(User $user, Challenge $challenge): ?Progression
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.user = :user')
+            ->andWhere('p.challenge = :challenge')
+            ->andWhere('p.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('challenge', $challenge)
+            ->setParameter('status', ChallengeStatus::IN_PROGRESS)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function findAccomplished(User $user, Challenge $challenge): ?Progression
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.user = :user')
+            ->andWhere('p.challenge = :challenge')
+            ->andWhere('p.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('challenge', $challenge)
+            ->setParameter('status', ChallengeStatus::COMPLETED)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function hasInProgress(User $user, Challenge $challenge): bool
+    {
+        return (bool) $this->findInProgress($user, $challenge);
+    }
+
+    public function hasAccomplished(User $user, Challenge $challenge): bool
+    {
+        return (bool) $this->findAccomplished($user, $challenge);
+    }
+
+    public function hasCompleted(User $user, Challenge $challenge): bool
+    {
+        return (bool) $this->createQueryBuilder('p')
+            ->select('1')
+            ->andWhere('p.user = :user')
+            ->andWhere('p.challenge = :challenge')
+            ->andWhere('p.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('challenge', $challenge)
+            ->setParameter('status', ChallengeStatus::COMPLETED)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    public function hasOtherInProgress(User $user, Challenge $challenge, int $excludeId): bool
+    {
+        return (bool) $this->createQueryBuilder('p')
+            ->select('1')
+            ->andWhere('p.user = :user')
+            ->andWhere('p.challenge = :challenge')
+            ->andWhere('p.status = :status')
+            ->andWhere('p.id != :excludeId')
+            ->setParameter('user', $user)
+            ->setParameter('challenge', $challenge)
+            ->setParameter('status', ChallengeStatus::IN_PROGRESS)
+            ->setParameter('excludeId', $excludeId)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 
 //    /**
 //     * @return Progression[] Returns an array of Progression objects

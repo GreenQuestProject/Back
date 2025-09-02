@@ -18,6 +18,16 @@ use Nelmio\ApiDocBundle\Attribute\Model;
 final class ProgressionController extends AbstractController
 {
 
+    private function getCurrentUserEntity(UserRepository $userRepo): ?\App\Entity\User
+    {
+        $ui = $this->getUser();
+        if (!$ui) {
+            return null;
+        }
+        return $userRepo->findOneBy(['username' => $ui->getUserIdentifier()]);
+    }
+
+
     /**
      * Start challenge
      * @param Challenge $challenge
@@ -32,24 +42,25 @@ final class ProgressionController extends AbstractController
         UserRepository         $userRepo,
         EntityManagerInterface $entityManager,
         ProgressionRepository  $progressionRepo
-    ): Response
-    {
-        $userInterface = $this->getUser();
-
-        $user = $userRepo->findOneBy(['username' => $userInterface->getUserIdentifier()]);
+    ): Response {
+        $user = $this->getCurrentUserEntity($userRepo);
 
         if (!$user) {
             return $this->json(['error' => 'Utilisateur introuvable dans la base'], Response::HTTP_UNAUTHORIZED);
         }
 
+        if ($progressionRepo->hasInProgress($user, $challenge)) {
+            return $this->json(
+                ['message' => 'Vous avez déjà ce défi en cours. Terminez-le avant d’en recommencer un.'],
+                Response::HTTP_CONFLICT
+            );
+        }
 
-        $existing = $progressionRepo->findOneBy([
-            'user' => $user,
-            'challenge' => $challenge,
-        ]);
-
-        if ($existing) {
-            return $this->json(['message' => 'Défi déjà commencé'], Response::HTTP_OK);
+        if (!$challenge->isRepeatable() && $progressionRepo->hasCompleted($user, $challenge)) {
+            return $this->json(
+                ['message' => 'Ce défi n’est pas répétable et a déjà été complété.'],
+                Response::HTTP_FORBIDDEN
+            );
         }
 
         $progression = new Progression();
@@ -61,8 +72,9 @@ final class ProgressionController extends AbstractController
         $entityManager->persist($progression);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Défi commencé avec succès']);
+        return $this->json(['message' => 'Défi commencé avec succès'], Response::HTTP_CREATED);
     }
+
 
     /**
      * Remove challenge
@@ -75,16 +87,16 @@ final class ProgressionController extends AbstractController
     public function removeChallenge(
         Challenge              $challenge,
         EntityManagerInterface $entityManager,
-        ProgressionRepository  $progressionRepo
+        ProgressionRepository  $progressionRepo,
+        UserRepository $userRepo
     ): Response
     {
-        $user = $this->getUser();
+        $user = $this->getCurrentUserEntity($userRepo);
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
 
-        $progression = $progressionRepo->findOneBy([
-            'user' => $user,
-            'challenge' => $challenge,
-        ]);
-
+        $progression = $progressionRepo->findOneBy(['user' => $user, 'challenge' => $challenge]);
         if (!$progression) {
             return $this->json(['message' => 'Défi non trouvé dans vos progressions'], Response::HTTP_NOT_FOUND);
         }
@@ -106,23 +118,22 @@ final class ProgressionController extends AbstractController
     public function validateChallenge(
         Challenge              $challenge,
         EntityManagerInterface $entityManager,
-        ProgressionRepository  $progressionRepo
+        ProgressionRepository  $progressionRepo,
+        UserRepository $userRepo
     ): Response
     {
-        $user = $this->getUser();
+        $user = $this->getCurrentUserEntity($userRepo);
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
 
-        $progression = $progressionRepo->findOneBy([
-            'user' => $user,
-            'challenge' => $challenge,
-        ]);
-
+        $progression = $progressionRepo->findOneBy(['user' => $user, 'challenge' => $challenge]);
         if (!$progression) {
             return $this->json(['message' => 'Défi non trouvé dans vos progressions'], Response::HTTP_NOT_FOUND);
         }
 
         $progression->setStatus(ChallengeStatus::COMPLETED);
         $progression->setCompletedAt(new \DateTimeImmutable());
-
         $entityManager->flush();
 
         return $this->json(['message' => 'Défi validé avec succès']);
@@ -141,33 +152,42 @@ final class ProgressionController extends AbstractController
         int                    $id,
         Request                $request,
         EntityManagerInterface $entityManager,
-        ProgressionRepository  $progressionRepo
+        ProgressionRepository  $progressionRepo,
+        UserRepository $userRepo,
     ): Response
     {
-        $user = $this->getUser();
+        $user = $this->getCurrentUserEntity($userRepo);
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
 
         $progression = $progressionRepo->find($id);
-
-        if (!$progression || $progression->getUser() !== $user) {
+        if (!$progression || $progression->getUser()->getId() !== $user->getId()) {
             return $this->json(['message' => 'Progression non trouvée ou accès refusé'], Response::HTTP_NOT_FOUND);
         }
 
         $data = json_decode($request->getContent(), true);
-
         if (!isset($data['status'])) {
             return $this->json(['message' => 'Le statut est obligatoire'], Response::HTTP_BAD_REQUEST);
         }
 
-        $newStatus = $data['status'];
-
-        $newStatusEnum = ChallengeStatus::tryFrom($newStatus);
-
+        $newStatusEnum = ChallengeStatus::tryFrom($data['status']);
         if ($newStatusEnum === null) {
             return $this->json(['message' => 'Statut invalide'], Response::HTTP_BAD_REQUEST);
         }
 
-        $progression->setStatus($newStatusEnum);
+        if ($newStatusEnum === ChallengeStatus::IN_PROGRESS) {
+            if ($progressionRepo->hasOtherInProgress($user, $progression->getChallenge(), $progression->getId())) {
+                return $this->json(
+                    ['message' => 'Vous avez déjà ce défi en cours sur une autre progression.'],
+                    Response::HTTP_CONFLICT
+                );
+            }
+            $progression->setStartedAt($progression->getStartedAt() ?? new \DateTimeImmutable());
+            $progression->setCompletedAt(null);
+        }
 
+        $progression->setStatus($newStatusEnum);
         if ($newStatusEnum === ChallengeStatus::COMPLETED) {
             $progression->setCompletedAt(new \DateTimeImmutable());
         } else {
@@ -175,9 +195,7 @@ final class ProgressionController extends AbstractController
         }
 
         $entityManager->flush();
-
         return $this->json(['message' => 'Statut de la progression mis à jour avec succès']);
-
     }
 
 
@@ -201,7 +219,7 @@ final class ProgressionController extends AbstractController
                 schema: new OA\Schema(type: 'string')
             ),
             new OA\QueryParameter(
-                name: 'type',
+                name: 'category',
                 description: 'Type of challenge (ecological, sports, etc.)',
                 in: 'query',
                 required: false,
@@ -225,37 +243,38 @@ final class ProgressionController extends AbstractController
     )]
     #[Route('/api/progression', name: 'progression_list', methods: ['GET'])]
     public function listUserProgression(
-        Request               $request,
+        Request $request,
+        UserRepository $userRepo,
         ProgressionRepository $progressionRepo
-    ): Response
-    {
-        $user = $this->getUser();
+    ): Response {
+        $user = $this->getCurrentUserEntity($userRepo);
+        if (!$user) {
+            return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
+        }
 
-        $status = $request->query->get('status'); // ex: "COMPLETED"
-        $type = $request->query->get('category');     // ex: "ecologique"
+        $status = $request->query->get('status');
+        $type   = $request->query->get('type');
 
         $progressions = $progressionRepo->findByUserWithFilters($user, $status, $type);
 
         $data = array_map(function (Progression $progression) {
             $r = $progression->getActiveReminder();
             return [
-                'id' => $progression->getId(),
-                'challengeId' => $progression->getChallenge()->getId(),
-                'description' => $progression->getChallenge()->getDescription(),
-                'name' => $progression->getChallenge()->getName(),
-                'category' => $progression->getChallenge()->getCategory(),
-                'status' => $progression->getStatus()->value,
-                'startedAt' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
-                'completedAt' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
-                'reminderId' => $r?->getId(),
-                'nextReminderUtc' => $r?->getScheduledAtUtc()->format(DATE_ATOM),
-                'recurrence'     => $r?->getRecurrence(),
-                'timezone'       => $r?->getTimezone(),
+                'id'           => $progression->getId(),
+                'challengeId'  => $progression->getChallenge()->getId(),
+                'description'  => $progression->getChallenge()->getDescription(),
+                'name'         => $progression->getChallenge()->getName(),
+                'category'     => $progression->getChallenge()->getCategory(),
+                'status'       => $progression->getStatus()->value,
+                'startedAt'    => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
+                'completedAt'  => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+                'reminderId'        => $r?->getId(),
+                'nextReminderUtc'   => $r?->getScheduledAtUtc()->format(DATE_ATOM),
+                'recurrence'        => $r?->getRecurrence(),
+                'timezone'          => $r?->getTimezone(),
             ];
         }, $progressions);
 
         return $this->json($data);
     }
-
-
 }

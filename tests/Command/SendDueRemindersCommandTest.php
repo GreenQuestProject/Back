@@ -2,6 +2,7 @@
 
 namespace App\Tests\Command;
 
+use App\Command\SendDueRemindersCommand;
 use App\Entity\Challenge;
 use App\Entity\Progression;
 use App\Entity\PushSubscription;
@@ -14,6 +15,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
+use Symfony\Component\Console\Tester\CommandTester;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class SendDueRemindersCommandTest extends KernelTestCase
@@ -29,14 +31,11 @@ final class SendDueRemindersCommandTest extends KernelTestCase
         $this->em = static::getContainer()->get(EntityManagerInterface::class);
         $this->passwordHasher = static::getContainer()->get(UserPasswordHasherInterface::class);
 
-        // Nettoyage minimal (adapte si besoin selon tes relations)
         $this->em->createQuery('DELETE FROM App\Entity\Reminder r')->execute();
         $this->em->createQuery('DELETE FROM App\Entity\PushSubscription s')->execute();
         $this->em->createQuery('DELETE FROM App\Entity\Progression p')->execute();
         $this->em->createQuery('DELETE FROM App\Entity\Challenge c')->execute();
         $this->em->createQuery('DELETE FROM App\Entity\User u')->execute();
-
-        // Mock PushSender et override dans le container de test
         $this->pushMock = $this->getMockBuilder(PushSender::class)->disableOriginalConstructor()->getMock();
         static::getContainer()->set(PushSender::class, $this->pushMock);
     }
@@ -46,9 +45,8 @@ final class SendDueRemindersCommandTest extends KernelTestCase
         $this->assertSame($expected->format('Y-m-d H:i:s'), $actual->format('Y-m-d H:i:s'), $msg);
     }
 
-    public function testSendDueReminders_sendsPayloads_andUpdatesRecurrence_withDistinctProgressions(): void
+    private function makeSeed(): array
     {
-        // === Seed de base ===
         $user = (new User())
             ->setEmail('user@example.com')
             ->setUsername('user')
@@ -62,7 +60,6 @@ final class SendDueRemindersCommandTest extends KernelTestCase
             ->setDescription('Reduce energy usage');
         $this->em->persist($challenge);
 
-        // Souscription push active avec champs obligatoires
         $sub = (new PushSubscription())
             ->setUser($user)
             ->setActive(true)
@@ -73,8 +70,7 @@ final class SendDueRemindersCommandTest extends KernelTestCase
             ->setCreatedAt(new \DateTimeImmutable('now', new \DateTimeZone('UTC')));
         $this->em->persist($sub);
 
-        // Une progression par rappel pour éviter uniq(progresssion_id, active)
-        $mkProg = function (string $label) use ($user, $challenge) {
+        $mkProg = function () use ($user, $challenge) {
             $p = (new Progression())
                 ->setUser($user)
                 ->setChallenge($challenge)
@@ -84,13 +80,13 @@ final class SendDueRemindersCommandTest extends KernelTestCase
             return $p;
         };
 
-        $progNone   = $mkProg('NONE');
-        $progDaily  = $mkProg('DAILY');
-        $progWeekly = $mkProg('WEEKLY');
-        $progFuture = $mkProg('FUTURE');
+        $progNone   = $mkProg();
+        $progDaily  = $mkProg();
+        $progWeekly = $mkProg();
+        $progFuture = $mkProg();
 
         $now = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
-        $dueAt = $now->modify('-5 seconds'); // au centre de la fenêtre de la command
+        $dueAt = $now->modify('-5 seconds'); // dans la fenêtre par défaut (90s)
 
         $rNone = (new Reminder())
             ->setProgression($progNone)
@@ -116,7 +112,6 @@ final class SendDueRemindersCommandTest extends KernelTestCase
             ->setActive(true);
         $this->em->persist($rWeekly);
 
-// Non-dû : hors fenêtre
         $rFuture = (new Reminder())
             ->setProgression($progFuture)
             ->setScheduledAtUtc($dueAt->modify('+5 minutes'))
@@ -127,7 +122,92 @@ final class SendDueRemindersCommandTest extends KernelTestCase
 
         $this->em->flush();
 
-// Capture IDs + timestamps AVANT exécution (pas de clear ici)
+        return [$user, $challenge, $sub, $rNone, $rDaily, $rWeekly, $rFuture];
+    }
+
+    public function testSendDueReminders_sendsPayloads_andUpdatesRecurrence(): void
+    {
+        [$user, $challenge, $sub, $rNone, $rDaily, $rWeekly, $rFuture] = $this->makeSeed();
+
+        $noneId   = $rNone->getId();
+        $dailyId  = $rDaily->getId();
+        $weeklyId = $rWeekly->getId();
+        $futureId = $rFuture->getId();
+
+        $dailyAt  = $rDaily->getScheduledAtUtc();
+        $weeklyAt = $rWeekly->getScheduledAtUtc();
+        $futureAt = $rFuture->getScheduledAtUtc();
+
+        $this->pushMock
+            ->expects($this->exactly(3))
+            ->method('sendWithReport')
+            ->with(
+                $this->callback(function ($subs) use ($sub) {
+                    return is_array($subs)
+                        && count($subs) === 1
+                        && $subs[0] instanceof PushSubscription
+                        && $subs[0]->getEndpoint() === $sub->getEndpoint();
+                }),
+                $this->callback(function ($payload) use ($challenge) {
+                    // clés indispensables
+                    foreach (['title','body','data','actions','tag','renotify','requireInteraction'] as $k) {
+                        if (!array_key_exists($k, $payload)) return false;
+                    }
+
+                    if (!isset($payload['data']['url'])) return false;
+                    if (!preg_match('#^/defis/\d+$#', $payload['data']['url'])) return false;
+
+                    $actions = array_column($payload['actions'], 'action');
+                    foreach (['open','done','snooze'] as $needed) {
+                        if (!in_array($needed, $actions, true)) return false;
+                    }
+
+                    return str_contains($payload['body'], (string) $challenge->getName());
+                })
+            )
+            ->willReturnOnConsecutiveCalls(
+                [['endpoint'=>$sub->getEndpoint(), 'success'=>true,  'status'=>201, 'reason'=>null]],
+                [['endpoint'=>$sub->getEndpoint(), 'success'=>true,  'status'=>201, 'reason'=>null]],
+                [['endpoint'=>$sub->getEndpoint(), 'success'=>false, 'status'=>410, 'reason'=>'Gone']], // un échec pour couvrir le cas
+            );
+
+        $application = new Application(static::getContainer()->get('kernel'));
+        $command = static::getContainer()->get(SendDueRemindersCommand::class);
+        $application->add($command);
+        $tester = new CommandTester($application->find('app:send-due-reminders'));
+        $exitCode = $tester->execute([]);
+        $this->assertSame(0, $exitCode);
+
+        $this->em->clear();
+        $repoReminder = $this->em->getRepository(Reminder::class);
+
+        $noneAfter   = $repoReminder->find($noneId);
+        $dailyAfter  = $repoReminder->find($dailyId);
+        $weeklyAfter = $repoReminder->find($weeklyId);
+        $futureAfter = $repoReminder->find($futureId);
+
+        $this->assertFalse($noneAfter->isActive());
+
+        $this->assertSameSecond(
+            $dailyAt->add(new \DateInterval('P1D')),
+            $dailyAfter->getScheduledAtUtc(),
+            'Reminder DAILY doit être replanifié +1 jour'
+        );
+
+        $this->assertSameSecond(
+            $weeklyAt->add(new \DateInterval('P1W')),
+            $weeklyAfter->getScheduledAtUtc(),
+            'Reminder WEEKLY doit être replanifié +1 semaine'
+        );
+
+        $this->assertTrue($futureAfter->isActive());
+        $this->assertSameSecond($futureAt, $futureAfter->getScheduledAtUtc());
+    }
+
+    public function testDryRun_doesNotSend_andDoesNotReschedule(): void
+    {
+        [$user, $challenge, $sub, $rNone, $rDaily, $rWeekly, $rFuture] = $this->makeSeed();
+
         $noneId   = $rNone->getId();
         $dailyId  = $rDaily->getId();
         $weeklyId = $rWeekly->getId();
@@ -138,42 +218,35 @@ final class SendDueRemindersCommandTest extends KernelTestCase
         $weeklyAt = $rWeekly->getScheduledAtUtc();
         $futureAt = $rFuture->getScheduledAtUtc();
 
-// Exécution immédiate de la commande
+        $this->pushMock
+            ->expects($this->never())
+            ->method('sendWithReport');
+
         $application = new Application(static::getContainer()->get('kernel'));
-        $command = static::getContainer()->get(\App\Command\SendDueRemindersCommand::class);
+        $command = static::getContainer()->get(SendDueRemindersCommand::class);
         $application->add($command);
-        $tester = new \Symfony\Component\Console\Tester\CommandTester($application->find('app:send-due-reminders'));
-        $exitCode = $tester->execute([]);
+        $tester = new CommandTester($application->find('app:send-due-reminders'));
+        $exitCode = $tester->execute(['--dry-run' => true]);
         $this->assertSame(0, $exitCode);
 
-// Recharge propre pour assertions
         $this->em->clear();
-        $repoReminder = $this->em->getRepository(\App\Entity\Reminder::class);
+        $repoReminder = $this->em->getRepository(Reminder::class);
 
         $noneAfter   = $repoReminder->find($noneId);
         $dailyAfter  = $repoReminder->find($dailyId);
         $weeklyAfter = $repoReminder->find($weeklyId);
         $futureAfter = $repoReminder->find($futureId);
 
-// NONE -> désactivé
-        $this->assertFalse($noneAfter->isActive());
-// DAILY -> +1 jour
-        $this->assertSameSecond(
-            $dailyAt->add(new \DateInterval('P1D')),
-            $dailyAfter->getScheduledAtUtc(),
-            'Reminder DAILY doit être replanifié +1 jour'
-        );
+        $this->assertTrue($noneAfter->isActive());
+        $this->assertSameSecond($noneAt, $noneAfter->getScheduledAtUtc());
 
-// WEEKLY -> +1 semaine
-        $this->assertSameSecond(
-            $weeklyAt->add(new \DateInterval('P1W')),
-            $weeklyAfter->getScheduledAtUtc(),
-            'Reminder WEEKLY doit être replanifié +1 semaine'
-        );
+        $this->assertTrue($dailyAfter->isActive());
+        $this->assertSameSecond($dailyAt, $dailyAfter->getScheduledAtUtc());
 
-// Non-dû -> inchangé et actif
+        $this->assertTrue($weeklyAfter->isActive());
+        $this->assertSameSecond($weeklyAt, $weeklyAfter->getScheduledAtUtc());
+
         $this->assertTrue($futureAfter->isActive());
         $this->assertSameSecond($futureAt, $futureAfter->getScheduledAtUtc());
-
     }
 }
