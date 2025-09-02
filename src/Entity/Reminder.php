@@ -6,7 +6,6 @@ use App\Repository\ReminderRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ReminderRepository::class)]
-#[ORM\UniqueConstraint(name: 'uniq_progression_active', columns: ['progression_id', 'active'])]
 class Reminder
 {
     #[ORM\Id]
