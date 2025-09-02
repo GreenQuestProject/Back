@@ -149,13 +149,13 @@ final class SendDueRemindersCommandTest extends KernelTestCase
                         && $subs[0]->getEndpoint() === $sub->getEndpoint();
                 }),
                 $this->callback(function ($payload) use ($challenge) {
-                    // clés indispensables
+
                     foreach (['title','body','data','actions','tag','renotify','requireInteraction'] as $k) {
                         if (!array_key_exists($k, $payload)) return false;
                     }
 
                     if (!isset($payload['data']['url'])) return false;
-                    if (!preg_match('#^/defis/\d+$#', $payload['data']['url'])) return false;
+                    if (!str_contains($payload['data']['url'], '/progression/')) return false;
 
                     $actions = array_column($payload['actions'], 'action');
                     foreach (['open','done','snooze'] as $needed) {
@@ -168,7 +168,7 @@ final class SendDueRemindersCommandTest extends KernelTestCase
             ->willReturnOnConsecutiveCalls(
                 [['endpoint'=>$sub->getEndpoint(), 'success'=>true,  'status'=>201, 'reason'=>null]],
                 [['endpoint'=>$sub->getEndpoint(), 'success'=>true,  'status'=>201, 'reason'=>null]],
-                [['endpoint'=>$sub->getEndpoint(), 'success'=>false, 'status'=>410, 'reason'=>'Gone']], // un échec pour couvrir le cas
+                [['endpoint'=>$sub->getEndpoint(), 'success'=>false, 'status'=>410, 'reason'=>'Gone']],
             );
 
         $application = new Application(static::getContainer()->get('kernel'));

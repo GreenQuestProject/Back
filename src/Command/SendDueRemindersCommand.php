@@ -104,11 +104,12 @@ class SendDueRemindersCommand extends Command
                 $this->reschedule($reminder);
                 continue;
             }
+            $frontendBaseUrl = rtrim($_ENV['FRONTEND_BASE_URL'] ?? '', '/');
 
             $payload = [
                 'title' => 'Rappel défi',
                 'body'  => sprintf('Il est temps de faire : %s', (string) $challenge->getName()),
-                'data'  => ['url' => '/defis/'.$challenge->getId(), 'reminderId' => $reminder->getId()],
+                'data'  => ['url' => $frontendBaseUrl . '/progression/', 'reminderId' => $reminder->getId()],
                 'actions' => [
                     ['action'=>'open','title'=>'Ouvrir'],
                     ['action'=>'done','title'=>'Fait'],
