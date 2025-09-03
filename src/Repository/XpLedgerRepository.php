@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\User;
 use App\Entity\XpLedger;
+use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -59,13 +60,13 @@ class XpLedgerRepository extends ServiceEntityRepository
         return $count > 0;
     }
 
-    public function credit(User $user, int $delta, string $reason, ?\DateTimeImmutable $at = null): void
+    public function credit(User $user, int $delta, string $reason, ?DateTimeImmutable $at = null): void
     {
         $ledger = new XpLedger();
         $ledger->setUser($user);
         $ledger->setDelta($delta);
         $ledger->setReason($reason);
-        $ledger->setOccurredAt($at ?? new \DateTimeImmutable());
+        $ledger->setOccurredAt($at ?? new DateTimeImmutable());
         $em = $this->getEntityManager();
         $em->persist($ledger);
         $em->flush();

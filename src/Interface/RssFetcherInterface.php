@@ -2,6 +2,8 @@
 
 namespace App\Interface;
 
+use DateTimeInterface;
+
 interface RssFetcherInterface
 {
     /**
@@ -11,7 +13,7 @@ interface RssFetcherInterface
      *   title: string,
      *   link: string,
      *   description?: string|null,
-     *   published_at?: string|\DateTimeInterface|int|null,
+     *   published_at?: string|DateTimeInterface|int|null,
      *   source?: string
      * }>
      */

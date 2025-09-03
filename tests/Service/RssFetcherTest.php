@@ -12,8 +12,29 @@ use Symfony\Component\HttpClient\Response\MockResponse;
  */
 final class RssFetcherTest extends TestCase
 {
-    private const RSS_URL  = 'https://example.com/rss.xml';
+    private const RSS_URL = 'https://example.com/rss.xml';
     private const ATOM_URL = 'https://example.org/atom.xml';
+
+    public function test_fetch_many_parses_and_deduplicates_and_sorts(): void
+    {
+        $client = $this->makeClient();
+        $fetcher = new RssFetcher($client);
+
+        $items = $fetcher->fetchMany([self::RSS_URL, self::ATOM_URL], null);
+
+        $this->assertCount(3, $items);
+
+        $this->assertSame('Entry C', $items[0]['title']);
+        $this->assertSame('Article B', $items[1]['title']);
+        $this->assertSame('Article A', $items[2]['title']);
+
+        $this->assertSame('https://site.com/a', $items[2]['link']);
+        $this->assertSame('https://site.com/b', $items[1]['link']);
+
+        $this->assertArrayHasKey('source', $items[0]);
+        $this->assertArrayHasKey('image_url', $items[0]);
+        $this->assertNotEmpty($items[0]['published_at']);
+    }
 
     private function makeClient(): MockHttpClient
     {
@@ -60,7 +81,7 @@ XML;
 XML;
 
         $map = [
-            self::RSS_URL  => new MockResponse($rssXml, ['response_headers' => ['content-type' => 'application/rss+xml']]),
+            self::RSS_URL => new MockResponse($rssXml, ['response_headers' => ['content-type' => 'application/rss+xml']]),
             self::ATOM_URL => new MockResponse($atomXml, ['response_headers' => ['content-type' => 'application/atom+xml']]),
         ];
 
@@ -70,45 +91,14 @@ XML;
         });
     }
 
-    public function test_fetch_many_parses_and_deduplicates_and_sorts(): void
-    {
-        $client  = $this->makeClient();
-        $fetcher = new RssFetcher($client);
-
-        $items = $fetcher->fetchMany([self::RSS_URL, self::ATOM_URL], null);
-
-        // 3 items attendus :
-        // - Article A (2024-01-01)
-        // - Article B (2024-01-02)
-        // - Entry C   (2024-01-03)
-        // Entry D est un doublon de B (même lien canonique sans gclid)
-        $this->assertCount(3, $items);
-
-        // Tri desc par date: C, B, A
-        $this->assertSame('Entry C', $items[0]['title']);
-        $this->assertSame('Article B', $items[1]['title']);
-        $this->assertSame('Article A', $items[2]['title']);
-
-        // Lien canonicalisé (utm/gclid/fragment retirés)
-        $this->assertSame('https://site.com/a', $items[2]['link']);
-        $this->assertSame('https://site.com/b', $items[1]['link']);
-
-        // Champs essentiels présents
-        $this->assertArrayHasKey('source', $items[0]);
-        $this->assertArrayHasKey('image_url', $items[0]);
-        $this->assertNotEmpty($items[0]['published_at']);
-    }
-
     public function test_limit_per_feed(): void
     {
-        $client  = $this->makeClient();
+        $client = $this->makeClient();
         $fetcher = new RssFetcher($client);
 
-        // Limite à 1 élément par feed => 2 items au total (1 du RSS + 1 de l'Atom)
         $items = $fetcher->fetchMany([self::RSS_URL, self::ATOM_URL], 1);
         $this->assertCount(2, $items);
 
-        // Le plus récent d'Atom (Entry C) puis le plus récent du RSS (Article B)
         $this->assertSame('Entry C', $items[0]['title']);
         $this->assertSame('Article B', $items[1]['title']);
     }

@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\XpLedgerRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: XpLedgerRepository::class)]
@@ -24,8 +25,7 @@ class XpLedger
     private ?string $reason = null;
 
     #[ORM\Column(type: 'datetimetz_immutable')]
-    private ?\DateTimeImmutable $occurredAt = null;
-
+    private ?DateTimeImmutable $occurredAt = null;
 
 
     public function getId(): ?int
@@ -69,12 +69,12 @@ class XpLedger
         return $this;
     }
 
-    public function getOccurredAt(): ?\DateTimeImmutable
+    public function getOccurredAt(): ?DateTimeImmutable
     {
         return $this->occurredAt;
     }
 
-    public function setOccurredAt(\DateTimeImmutable $occurredAt): static
+    public function setOccurredAt(DateTimeImmutable $occurredAt): static
     {
         $this->occurredAt = $occurredAt;
 

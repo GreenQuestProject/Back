@@ -4,6 +4,8 @@ namespace App\Entity;
 
 use App\Enum\ChallengeStatus;
 use App\Repository\ProgressionRepository;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -38,11 +40,11 @@ class Progression
 
     #[ORM\Column(type: 'datetime', nullable: true)]
     #[Groups(["getAll"])]
-    private ?\DateTimeInterface $startedAt = null;
+    private ?DateTimeInterface $startedAt = null;
 
     #[ORM\Column(type: 'datetime', nullable: true)]
     #[Groups(["getAll"])]
-    private ?\DateTimeInterface $completedAt = null;
+    private ?DateTimeInterface $completedAt = null;
 
     /**
      * @var Collection<int, Reminder>
@@ -109,7 +111,7 @@ class Progression
 
         if ($status === ChallengeStatus::COMPLETED) {
             $this->isAccomplished = true;
-            $this->completedAt = new \DateTimeImmutable();
+            $this->completedAt = new DateTimeImmutable();
         } else {
             $this->isAccomplished = false;
             $this->completedAt = null;
@@ -123,23 +125,23 @@ class Progression
         return $this->isAccomplished;
     }
 
-    public function getStartedAt(): ?\DateTimeInterface
+    public function getStartedAt(): ?DateTimeInterface
     {
         return $this->startedAt;
     }
 
-    public function setStartedAt(?\DateTimeInterface $startedAt): self
+    public function setStartedAt(?DateTimeInterface $startedAt): self
     {
         $this->startedAt = $startedAt;
         return $this;
     }
 
-    public function getCompletedAt(): ?\DateTimeInterface
+    public function getCompletedAt(): ?DateTimeInterface
     {
         return $this->completedAt;
     }
 
-    public function setCompletedAt(?\DateTimeInterface $completedAt): self
+    public function setCompletedAt(?DateTimeInterface $completedAt): self
     {
         $this->completedAt = $completedAt;
         return $this;
@@ -166,7 +168,6 @@ class Progression
     public function removeReminder(Reminder $reminder): static
     {
         if ($this->reminders->removeElement($reminder)) {
-            // set the owning side to null (unless already changed)
             if ($reminder->getProgression() === $this) {
                 $reminder->setProgression(null);
             }
@@ -230,7 +231,6 @@ class Progression
     public function removeProgressionEvent(ProgressionEvent $progressionEvent): static
     {
         if ($this->progressionEvents->removeElement($progressionEvent)) {
-            // set the owning side to null (unless already changed)
             if ($progressionEvent->getProgression() === $this) {
                 $progressionEvent->setProgression(null);
             }

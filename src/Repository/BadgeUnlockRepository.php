@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\BadgeUnlock;
 use App\Entity\User;
+use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -32,8 +33,8 @@ class BadgeUnlockRepository extends ServiceEntityRepository
 
         return array_map(function ($r) {
             $dt = $r['unlockedAt'];
-            $iso = $dt instanceof \DateTimeInterface ? $dt->format(DATE_ATOM) : (string)$dt;
-            return ['code'=>$r['code'], 'name'=>$r['name'], 'rarity'=>$r['rarity'], 'unlockedAt'=>$iso];
+            $iso = $dt instanceof DateTimeInterface ? $dt->format(DATE_ATOM) : (string)$dt;
+            return ['code' => $r['code'], 'name' => $r['name'], 'rarity' => $r['rarity'], 'unlockedAt' => $iso];
         }, $rows);
     }
 

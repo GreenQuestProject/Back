@@ -6,6 +6,7 @@ use App\Entity\PushSubscription;
 use App\Service\PushSender;
 use Doctrine\ORM\EntityManagerInterface;
 use ErrorException;
+use Generator;
 use Minishlink\WebPush\MessageSentReport;
 use Minishlink\WebPush\Subscription as WebPushSubscription;
 use Minishlink\WebPush\WebPush;
@@ -13,53 +14,10 @@ use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 final class PushSenderTest extends TestCase
 {
-    private function b64url(int $lenBytes): string
-    {
-        return rtrim(strtr(base64_encode(random_bytes($lenBytes)), '+/', '-_'), '=');
-    }
-
-    private function makeSub(
-        string  $endpoint = 'https://push.example/endpoint-1',
-        ?string $p256dh = null,
-        ?string $auth = null
-    ): PushSubscription
-    {
-        $s = new PushSubscription();
-        $s->setEndpoint($endpoint);
-        $s->setP256dh($p256dh ?? $this->b64url(32)); // clé publique ~43 chars
-        $s->setAuth($auth ?? $this->b64url(16));     // auth ~22 chars
-        $s->setEncoding('aes128gcm');
-        $s->setActive(true);
-        return $s;
-    }
-
-    private function emptyGenerator(): \Generator
-    {
-        yield from [];
-    }
-
-    /**
-     * @throws Exception
-     * @throws ErrorException
-     */
-    private function makeSender(
-        WebPush                 $webPush,
-        ?EntityManagerInterface $em = null,
-        ?LoggerInterface        $logger = null
-    ): PushSender
-    {
-        $em ??= $this->createStub(EntityManagerInterface::class);
-        $logger ??= $this->createStub(LoggerInterface::class);
-
-        return new \App\Service\PushSender(
-            'PUBLIC', 'PRIVATE', 'mailto:test@example.com',
-            $em, $logger, $webPush
-        );
-    }
-
     /**
      * @throws Exception
      * @throws ErrorException
@@ -92,6 +50,50 @@ final class PushSenderTest extends TestCase
         $sender = $this->makeSender($webPushMock);
         $sender->send([$sub], $payload);
         $this->assertTrue(true);
+    }
+
+    private function makeSub(
+        string  $endpoint = 'https://push.example/endpoint-1',
+        ?string $p256dh = null,
+        ?string $auth = null
+    ): PushSubscription
+    {
+        $s = new PushSubscription();
+        $s->setEndpoint($endpoint);
+        $s->setP256dh($p256dh ?? $this->b64url(32));
+        $s->setAuth($auth ?? $this->b64url(16));
+        $s->setEncoding('aes128gcm');
+        $s->setActive(true);
+        return $s;
+    }
+
+    private function b64url(int $lenBytes): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes($lenBytes)), '+/', '-_'), '=');
+    }
+
+    private function emptyGenerator(): Generator
+    {
+        yield from [];
+    }
+
+    /**
+     * @throws Exception
+     * @throws ErrorException
+     */
+    private function makeSender(
+        WebPush                 $webPush,
+        ?EntityManagerInterface $em = null,
+        ?LoggerInterface        $logger = null
+    ): PushSender
+    {
+        $em ??= $this->createStub(EntityManagerInterface::class);
+        $logger ??= $this->createStub(LoggerInterface::class);
+
+        return new PushSender(
+            'PUBLIC', 'PRIVATE', 'mailto:test@example.com',
+            $em, $logger, $webPush
+        );
     }
 
     /**
@@ -215,9 +217,9 @@ final class PushSenderTest extends TestCase
         $webPushMock = $this->createMock(WebPush::class);
         $webPushMock->expects($this->once())
             ->method('sendOneNotification')
-            ->willThrowException(new \RuntimeException('x-plode'));
+            ->willThrowException(new RuntimeException('x-plode'));
 
-        $sender = new \App\Service\PushSender(
+        $sender = new PushSender(
             'PUBLIC', 'PRIVATE', 'mailto:test@example.com',
             $emMock, $loggerMock, $webPushMock
         );

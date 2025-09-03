@@ -3,7 +3,6 @@
 namespace App\Entity;
 
 use App\Enum\ChallengeCategory;
-use App\Enum\ChallengeStatus;
 use App\Repository\ChallengeRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -22,8 +21,8 @@ class Challenge
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Assert\NotBlank(message:"Le nom ne doit pas être vide")]
-    #[Assert\NotNull(message:"Le nom ne doit pas être vide")]
+    #[Assert\NotBlank(message: "Le nom ne doit pas être vide")]
+    #[Assert\NotNull(message: "Le nom ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $name = null;
 
@@ -42,7 +41,7 @@ class Challenge
     private Collection $progressions;
 
     #[ORM\Column(type: 'smallint', options: ['default' => 1])]
-    #[Assert\Range(min:1, max:5)]
+    #[Assert\Range(min: 1, max: 5)]
     #[Groups(["getAll"])]
     private ?int $difficulty = 1;
 
@@ -133,7 +132,6 @@ class Challenge
     public function removeProgression(Progression $progression): static
     {
         if ($this->progressions->removeElement($progression)) {
-            // set the owning side to null (unless already changed)
             if ($progression->getChallenge() === $this) {
                 $progression->setChallenge(null);
             }
@@ -214,9 +212,20 @@ class Challenge
         return $this;
     }
 
-    public function getCo2EstimateKgFloat(): float { return (float)$this->co2EstimateKg; }
-    public function getWaterEstimateLFloat(): float { return (float)$this->waterEstimateL; }
-    public function getWasteEstimateKgFloat(): float { return (float)$this->wasteEstimateKg; }
+    public function getCo2EstimateKgFloat(): float
+    {
+        return (float)$this->co2EstimateKg;
+    }
+
+    public function getWaterEstimateLFloat(): float
+    {
+        return (float)$this->waterEstimateL;
+    }
+
+    public function getWasteEstimateKgFloat(): float
+    {
+        return (float)$this->wasteEstimateKg;
+    }
 
 
 }

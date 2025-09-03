@@ -2,8 +2,8 @@
 
 namespace App\Tests\Controller;
 
-use App\Entity\User;
 use App\Entity\NotificationPreference;
+use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -15,41 +15,6 @@ final class PreferencesControllerTest extends WebTestCase
     private EntityManagerInterface $entityManager;
     private KernelBrowser $client;
     private UserPasswordHasherInterface $passwordHasher;
-
-    protected function setUp(): void
-    {
-        $this->client = PreferencesControllerTest::createClient();
-        $this->entityManager = PreferencesControllerTest::getContainer()->get(EntityManagerInterface::class);
-        $this->passwordHasher = PreferencesControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
-
-        $this->entityManager->createQuery('DELETE FROM App\Entity\User u')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\NotificationPreference np')->execute();
-
-        $user = (new User())
-            ->setUsername('user')
-            ->setEmail('user@user')
-            ->setRoles(['ROLE_USER']);
-        $user->setPassword($this->passwordHasher->hashPassword($user, 'password'));
-        $this->entityManager->persist($user);
-
-        $this->entityManager->flush();
-    }
-
-    private function getJwtToken(string $username, string $password): string
-    {
-        $this->client->request(
-            'POST',
-            '/api/login',
-            [],
-            [],
-            ['CONTENT_TYPE' => 'application/json'],
-            json_encode(['username' => $username, 'password' => $password])
-        );
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        return $response['token'] ?? '';
-    }
 
     public function testGetCreatesPreferenceIfMissingAndReturnsFlag(): void
     {
@@ -80,6 +45,22 @@ final class PreferencesControllerTest extends WebTestCase
         $prefs = $this->entityManager->getRepository(NotificationPreference::class)->findAll();
         $this->assertCount(1, $prefs);
         $this->assertFalse($prefs[0]->isNewChallenge());
+    }
+
+    private function getJwtToken(string $username, string $password): string
+    {
+        $this->client->request(
+            'POST',
+            '/api/login',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['username' => $username, 'password' => $password])
+        );
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        return $response['token'] ?? '';
     }
 
     public function testPostUpdatesPreferenceToTrue(): void
@@ -151,7 +132,7 @@ final class PreferencesControllerTest extends WebTestCase
             [],
             [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_Authorization' => "Bearer $jwtToken"],
-            '' // body vide
+            ''
         );
         $this->assertResponseIsSuccessful();
 
@@ -163,5 +144,24 @@ final class PreferencesControllerTest extends WebTestCase
         $prefs = $this->entityManager->getRepository(NotificationPreference::class)->findAll();
         $this->assertCount(1, $prefs);
         $this->assertTrue($prefs[0]->isNewChallenge(), 'Sans newChallenge dans le body, l’état ne doit pas changer');
+    }
+
+    protected function setUp(): void
+    {
+        $this->client = PreferencesControllerTest::createClient();
+        $this->entityManager = PreferencesControllerTest::getContainer()->get(EntityManagerInterface::class);
+        $this->passwordHasher = PreferencesControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $this->entityManager->createQuery('DELETE FROM App\Entity\User u')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\NotificationPreference np')->execute();
+
+        $user = (new User())
+            ->setUsername('user')
+            ->setEmail('user@user')
+            ->setRoles(['ROLE_USER']);
+        $user->setPassword($this->passwordHasher->hashPassword($user, 'password'));
+        $this->entityManager->persist($user);
+
+        $this->entityManager->flush();
     }
 }

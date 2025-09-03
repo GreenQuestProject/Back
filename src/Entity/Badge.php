@@ -28,7 +28,7 @@ class Badge
     private ?string $icon = null;
 
     #[ORM\Column(length: 20, nullable: true)]
-    #[Assert\Choice(['common','rare','epic','legendary'])]
+    #[Assert\Choice(['common', 'rare', 'epic', 'legendary'])]
     private ?string $rarity = "common";
 
     public function getId(): ?int

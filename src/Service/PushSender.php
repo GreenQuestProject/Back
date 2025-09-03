@@ -1,12 +1,14 @@
 <?php
+
 namespace App\Service;
 
-use ErrorException;
-use Minishlink\WebPush\WebPush;
-use Minishlink\WebPush\Subscription;
 use App\Entity\PushSubscription;
 use Doctrine\ORM\EntityManagerInterface as EM;
+use ErrorException;
+use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\WebPush;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 class PushSender
 {
@@ -16,17 +18,18 @@ class PushSender
      * @throws ErrorException
      */
     public function __construct(
-        string $public,
-        string $private,
-        string $subject,
-        private EM $em,
+        string                  $public,
+        string                  $private,
+        string                  $subject,
+        private EM              $em,
         private LoggerInterface $logger,
-        ?WebPush $webPush = null
-    ) {
+        ?WebPush                $webPush = null
+    )
+    {
         $this->webPush = $webPush ?? new WebPush([
             'VAPID' => [
-                'subject'    => $subject,
-                'publicKey'  => $public,
+                'subject' => $subject,
+                'publicKey' => $public,
                 'privateKey' => $private,
             ],
         ]);
@@ -39,9 +42,9 @@ class PushSender
     {
         foreach ($subs as $s) {
             $sub = Subscription::create([
-                'endpoint'        => $s->getEndpoint(),
-                'publicKey'       => $s->getP256dh(),
-                'authToken'       => $s->getAuth(),
+                'endpoint' => $s->getEndpoint(),
+                'publicKey' => $s->getP256dh(),
+                'authToken' => $s->getAuth(),
                 'contentEncoding' => $s->getEncoding(),
             ]);
             $this->webPush->queueNotification($sub, json_encode($payload));
@@ -49,7 +52,7 @@ class PushSender
 
         foreach ($this->webPush->flush() as $report) {
             if (!$report->isSuccess()) {
-                $endpoint = (string) $report->getRequest()->getUri();
+                $endpoint = (string)$report->getRequest()->getUri();
             }
         }
     }
@@ -63,8 +66,8 @@ class PushSender
         foreach ($subs as $s) {
             try {
                 $subscription = Subscription::create([
-                    'endpoint'        => $s->getEndpoint(),
-                    'keys'            => ['p256dh' => $s->getP256dh(), 'auth' => $s->getAuth()],
+                    'endpoint' => $s->getEndpoint(),
+                    'keys' => ['p256dh' => $s->getP256dh(), 'auth' => $s->getAuth()],
                     'contentEncoding' => $s->getEncoding() ?: 'aes128gcm',
                 ]);
 
@@ -76,9 +79,9 @@ class PushSender
 
                 $row = [
                     'endpoint' => $s->getEndpoint(),
-                    'success'  => $report->isSuccess(),
-                    'status'   => $report->getResponse()?->getStatusCode(),
-                    'reason'   => $report->getReason(),
+                    'success' => $report->isSuccess(),
+                    'status' => $report->getResponse()?->getStatusCode(),
+                    'reason' => $report->getReason(),
                 ];
                 $out[] = $row;
 
@@ -86,7 +89,7 @@ class PushSender
                     $s->setActive(false);
                     $this->em->flush();
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 $this->logger->error('Push exception', ['msg' => $e->getMessage()]);
                 $out[] = ['endpoint' => $s->getEndpoint(), 'success' => false, 'exception' => $e->getMessage()];
             }

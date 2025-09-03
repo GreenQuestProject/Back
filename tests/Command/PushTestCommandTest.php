@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Tests\Command;
 
 use App\Command\PushTestCommand;
@@ -9,6 +10,8 @@ use PHPUnit\Framework\MockObject\MockObject;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use function count;
+use function is_array;
 
 final class PushTestCommandTest extends KernelTestCase
 {
@@ -37,7 +40,7 @@ final class PushTestCommandTest extends KernelTestCase
         $this->repoMock->expects($this->once())
             ->method('findBy')
             ->with(['active' => true])
-            ->willReturn([]); // aucune sub
+            ->willReturn([]);
 
         $this->pushMock->expects($this->never())->method('sendWithReport');
 
@@ -77,18 +80,18 @@ final class PushTestCommandTest extends KernelTestCase
             ->method('sendWithReport')
             ->with(
                 $this->callback(function ($subs) use ($s1, $s2) {
-                    return \is_array($subs) && \count($subs) === 2
+                    return is_array($subs) && count($subs) === 2
                         && $subs[0] === $s1 && $subs[1] === $s2;
                 }),
                 $this->callback(function ($payload) {
-                    return \is_array($payload)
+                    return is_array($payload)
                         && ($payload['title'] ?? null) === 'Test push'
                         && ($payload['body'] ?? null) === 'Coucou 👋 ça marche !'
                         && isset($payload['data']['url']) && $payload['data']['url'] === '/defis';
                 })
             )
             ->willReturn([
-                ['endpoint' => $s1->getEndpoint(), 'success' => true,  'status' => 201, 'reason' => null],
+                ['endpoint' => $s1->getEndpoint(), 'success' => true, 'status' => 201, 'reason' => null],
                 ['endpoint' => $s2->getEndpoint(), 'success' => false, 'status' => 410, 'reason' => 'Gone'],
             ]);
 
@@ -107,4 +110,6 @@ final class PushTestCommandTest extends KernelTestCase
         $this->assertStringContainsString('OK  [201]  https://push.example.test/aaa', $plain);
         $this->assertStringContainsString('FAIL  [410]  https://push.example.test/bbb  Gone', $plain);
     }
+
+
 }

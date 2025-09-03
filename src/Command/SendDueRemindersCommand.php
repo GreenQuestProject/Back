@@ -9,10 +9,12 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use Doctrine\ORM\EntityManagerInterface as EM;
+use Exception;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Lock\LockFactory;
 use Symfony\Component\Lock\Store\FlockStore;
@@ -21,9 +23,10 @@ use Symfony\Component\Lock\Store\FlockStore;
 class SendDueRemindersCommand extends Command
 {
     public function __construct(
-        private EM $em,
-        private PushSender $push
-    ) {
+        private readonly EM         $em,
+        private readonly PushSender $push
+    )
+    {
         parent::__construct();
     }
 
@@ -36,23 +39,26 @@ class SendDueRemindersCommand extends Command
             ->addOption('user', null, InputOption::VALUE_REQUIRED, 'Filtrer par ID utilisateur');
     }
 
-    protected function execute(InputInterface $input, \Symfony\Component\Console\Output\OutputInterface $output): int
+    /**
+     * @throws Exception
+     */
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
         $store = new FlockStore(sys_get_temp_dir());
         $factory = new LockFactory($store);
-        $lock = $factory->createLock('app:send-due-reminders', 300); // 5 min
+        $lock = $factory->createLock('app:send-due-reminders', 300);
         if (!$lock->acquire()) {
             $io->warning('Une autre exécution est en cours. Sortie.');
             return Command::SUCCESS;
         }
 
-        $nowUtc   = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $window   = max(0, (int) $input->getOption('window'));
-        $limit    = max(1, (int) $input->getOption('limit'));
-        $dryRun   = (bool) $input->getOption('dry-run');
-        $userId   = $input->getOption('user');
+        $nowUtc = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $window = max(0, (int)$input->getOption('window'));
+        $limit = max(1, (int)$input->getOption('limit'));
+        $dryRun = (bool)$input->getOption('dry-run');
+        $userId = $input->getOption('user');
 
         $io->section(sprintf(
             'Départ %s (UTC), fenêtre %ds, limite %d%s',
@@ -80,17 +86,17 @@ class SendDueRemindersCommand extends Command
         }
 
         if ($userId) {
-            $q->andWhere('u.id = :uid')->setParameter('uid', (int) $userId);
+            $q->andWhere('u.id = :uid')->setParameter('uid', (int)$userId);
         }
 
-        $query   = $q->getQuery();
-        $iter    = $query->toIterable([], \Doctrine\ORM\Query::HYDRATE_OBJECT);
+        $query = $q->getQuery();
+        $iter = $query->toIterable();
 
         $count = 0;
         $sent = 0;
         $failed = 0;
 
-        foreach ($iter as $reminder /** @var Reminder $reminder */) {
+        foreach ($iter as $reminder/** @var Reminder $reminder */) {
             $count++;
 
             $user = $reminder->getProgression()->getUser();
@@ -108,14 +114,14 @@ class SendDueRemindersCommand extends Command
 
             $payload = [
                 'title' => 'Rappel défi',
-                'body'  => sprintf('Il est temps de faire : %s', (string) $challenge->getName()),
-                'data'  => ['url' => $frontendBaseUrl . '/progression/', 'reminderId' => $reminder->getId()],
+                'body' => sprintf('Il est temps de faire : %s', $challenge->getName()),
+                'data' => ['url' => $frontendBaseUrl . '/progression/', 'reminderId' => $reminder->getId()],
                 'actions' => [
-                    ['action'=>'open','title'=>'Ouvrir'],
-                    ['action'=>'done','title'=>'Fait'],
-                    ['action'=>'snooze','title'=>'Plus tard'],
+                    ['action' => 'open', 'title' => 'Ouvrir'],
+                    ['action' => 'done', 'title' => 'Fait'],
+                    ['action' => 'snooze', 'title' => 'Plus tard'],
                 ],
-                'tag' => 'reminder-'.$reminder->getId().'-'.time(),
+                'tag' => 'reminder-' . $reminder->getId() . '-' . time(),
                 'renotify' => true,
                 'requireInteraction' => true,
             ];
@@ -142,11 +148,16 @@ class SendDueRemindersCommand extends Command
                     $reason ?? '-'
                 ));
 
-                if ($ok) { $okForAny = true; }
-                else     { $failed++; }
+                if ($ok) {
+                    $okForAny = true;
+                } else {
+                    $failed++;
+                }
             }
 
-            if ($okForAny) { $sent++; }
+            if ($okForAny) {
+                $sent++;
+            }
             $this->reschedule($reminder);
 
             if (($count % 100) === 0) {
@@ -166,8 +177,7 @@ class SendDueRemindersCommand extends Command
     }
 
     /**
-     * Replanifie le prochain envoi selon la récurrence, sinon désactive.
-     * Prend en compte le fuseau horaire du rappel si présent (ex: $reminder->getTimezone()).
+     * @throws Exception
      */
     private function reschedule(Reminder $reminder): void
     {

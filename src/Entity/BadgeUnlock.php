@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\BadgeUnlockRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: BadgeUnlockRepository::class)]
@@ -18,7 +19,7 @@ class BadgeUnlock
     private ?Badge $badge = null;
 
     #[ORM\Column(type: 'datetimetz_immutable')]
-    private ?\DateTimeImmutable $unlockedAt = null;
+    private ?DateTimeImmutable $unlockedAt = null;
 
     #[ORM\ManyToOne(inversedBy: 'badgeUnlocks')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -41,12 +42,12 @@ class BadgeUnlock
         return $this;
     }
 
-    public function getUnlockedAt(): ?\DateTimeImmutable
+    public function getUnlockedAt(): ?DateTimeImmutable
     {
         return $this->unlockedAt;
     }
 
-    public function setUnlockedAt(\DateTimeImmutable $unlockedAt): static
+    public function setUnlockedAt(DateTimeImmutable $unlockedAt): static
     {
         $this->unlockedAt = $unlockedAt;
 

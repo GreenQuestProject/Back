@@ -3,7 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\ProgressionEventRepository;
-use Doctrine\DBAL\Types\Types;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -20,14 +20,14 @@ class ProgressionEvent
     private ?Progression $progression = null;
 
     #[ORM\Column(length: 12)]
-    #[Assert\Choice(['viewed','started','step','done','abandoned'])]
+    #[Assert\Choice(['viewed', 'started', 'step', 'done', 'abandoned'])]
     private ?string $eventType = null;
 
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $meta = null;
 
     #[ORM\Column(type: 'datetimetz_immutable')]
-    private ?\DateTimeImmutable $occurredAt = null;
+    private ?DateTimeImmutable $occurredAt = null;
 
     public function getId(): ?int
     {
@@ -70,12 +70,12 @@ class ProgressionEvent
         return $this;
     }
 
-    public function getOccurredAt(): ?\DateTimeImmutable
+    public function getOccurredAt(): ?DateTimeImmutable
     {
         return $this->occurredAt;
     }
 
-    public function setOccurredAt(\DateTimeImmutable $occurredAt): static
+    public function setOccurredAt(DateTimeImmutable $occurredAt): static
     {
         $this->occurredAt = $occurredAt;
 

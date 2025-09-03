@@ -2,25 +2,28 @@
 
 namespace App\Controller;
 
+use App\Entity\PushSubscription;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\HttpFoundation\Request;
-use App\Entity\PushSubscription;
-use App\Service\PushSender;
+
 final class PushController extends AbstractController
 {
-    public function __construct(private readonly EntityManagerInterface $em) {}
+    public function __construct(private readonly EntityManagerInterface $em)
+    {
+    }
 
     /**
      * @param Request $req
      * @return JsonResponse
      */
     #[Route('api/push/subscribe', name: 'push_subscribe', methods: ['POST'])]
-    public function subscribe(Request $req): JsonResponse {
+    public function subscribe(Request $req): JsonResponse
+    {
         $payload = json_decode($req->getContent(), true) ?? [];
         $endpoint = $payload['endpoint'] ?? null;
         $keys = $payload['keys'] ?? [];
@@ -32,7 +35,7 @@ final class PushController extends AbstractController
         $hash = hash('sha256', $endpoint);
 
         $repo = $this->em->getRepository(PushSubscription::class);
-        $sub  = $repo->findOneBy(['endpointHash' => $hash]);
+        $sub = $repo->findOneBy(['endpointHash' => $hash]);
 
         $isNew = false;
         if (!$sub) {
@@ -42,10 +45,10 @@ final class PushController extends AbstractController
         }
 
         $sub->setUser($this->getUser());
-        $sub->setEndpoint($endpoint);                 // <-- met aussi à jour endpointHash
+        $sub->setEndpoint($endpoint);
         $sub->setP256dh($keys['p256dh'] ?? '');
         $sub->setAuth($keys['auth'] ?? '');
-        $sub->setEncoding('aes128gcm');               // ok, mais optionnel (voir note)
+        $sub->setEncoding('aes128gcm');
         $sub->setActive(true);
 
         $this->em->persist($sub);
@@ -58,10 +61,13 @@ final class PushController extends AbstractController
      * @return JsonResponse
      */
     #[Route('api/push/unsubscribe', name: 'push_unsubscribe', methods: ['POST'])]
-    public function unsubscribe(): JsonResponse {
+    public function unsubscribe(): JsonResponse
+    {
         $user = $this->getUser();
         $subs = $this->em->getRepository(PushSubscription::class)->findBy(['user' => $user, 'active' => true]);
-        foreach ($subs as $s) { $s->setActive(false); }
+        foreach ($subs as $s) {
+            $s->setActive(false);
+        }
         $this->em->flush();
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }

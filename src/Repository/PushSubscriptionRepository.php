@@ -16,7 +16,8 @@ class PushSubscriptionRepository extends ServiceEntityRepository
         parent::__construct($registry, PushSubscription::class);
     }
 
-    public function findActiveWithNewChallengeEnabled(): array {
+    public function findActiveWithNewChallengeEnabled(): array
+    {
         return $this->createQueryBuilder('ps')
             ->innerJoin('ps.user', 'u')
             ->innerJoin('u.notificationPreference', 'p')

@@ -3,7 +3,6 @@
 namespace App\Tests\Controller;
 
 use App\Entity\Challenge;
-use App\Entity\Progression;
 use App\Entity\User;
 use App\Repository\ChallengeRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -12,72 +11,11 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-final class ChallengeControllerTest extends WebTestCase{
+final class ChallengeControllerTest extends WebTestCase
+{
     private EntityManagerInterface $entityManager;
     private KernelBrowser $client;
     private UserPasswordHasherInterface $passwordHasher;
-    protected function setUp(): void
-    {
-        //self::bootKernel(); // Lance le kernel Symfony
-        $this->client = ChallengeControllerTest::createClient();
-        $this->entityManager = ChallengeControllerTest::getContainer()->get(EntityManagerInterface::class);
-        $this->passwordHasher = ChallengeControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
-
-        // Nettoyage si besoin (sécurité en cas de test planté précédemment)
-        $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge')->execute();
-
-        // Créer un user
-      $user = (new User())
-          ->setUsername('user')
-          ->setEmail('user@user')
-          ->setRoles(['ROLE_USER']);
-      $user->setPassword($this->passwordHasher->hashPassword($user, 'password'));
-      $this->entityManager->persist($user);
-
-      // Créer un admin
-      $admin = (new User())
-          ->setUsername('admin')
-          ->setEmail('admin@admin')
-          ->setRoles(['ROLE_ADMIN']);
-          $admin->setPassword($this->passwordHasher->hashPassword($admin, 'password'));
-      $this->entityManager->persist($admin);
-
-
-        $this->entityManager->flush();
-    }
-
-    private function getJwtToken(string $username, string $password): string
-    {
-        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
-            'username' => $username,
-            'password' => $password
-        ]));
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        return $response['token'] ?? '';
-    }
-
-    private function createChallenge(string $name): Challenge
-    {
-        $challenge = new Challenge();
-        $challenge->setName($name);
-
-        $this->entityManager->persist($challenge);
-        $this->entityManager->flush();
-
-        return $challenge;
-    }
-
-    private function deleteChallenge(Challenge $challenge): void
-    {
-        $challenge = $this->entityManager->getRepository(Challenge::class)->findOneBy(['name' => $challenge->getName()]);
-
-        $this->entityManager->remove($challenge);
-        $this->entityManager->flush();
-    }
-
 
     public function testCreateChallengeSuccessfully(): void
     {
@@ -107,6 +45,26 @@ final class ChallengeControllerTest extends WebTestCase{
         $this->assertNotNull($challenge, 'Le challenge a bien été enregistré.');
 
         $this->deleteChallenge($challenge);
+    }
+
+    private function getJwtToken(string $username, string $password): string
+    {
+        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'username' => $username,
+            'password' => $password
+        ]));
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        return $response['token'] ?? '';
+    }
+
+    private function deleteChallenge(Challenge $challenge): void
+    {
+        $challenge = $this->entityManager->getRepository(Challenge::class)->findOneBy(['name' => $challenge->getName()]);
+
+        $this->entityManager->remove($challenge);
+        $this->entityManager->flush();
     }
 
     public function testCreateChallengeAsNonAdmin(): void
@@ -169,7 +127,6 @@ final class ChallengeControllerTest extends WebTestCase{
         $this->assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
     }
 
-
     public function testUpdateChallengeSuccessfully(): void
     {
         $challenge = $this->createChallenge('test');
@@ -189,6 +146,17 @@ final class ChallengeControllerTest extends WebTestCase{
         $this->assertSame("A cool description", $updatedChallenge->getDescription());
 
         $this->deleteChallenge($challenge);
+    }
+
+    private function createChallenge(string $name): Challenge
+    {
+        $challenge = new Challenge();
+        $challenge->setName($name);
+
+        $this->entityManager->persist($challenge);
+        $this->entityManager->flush();
+
+        return $challenge;
     }
 
     public function testUpdateChallengeAsNonAdmin(): void
@@ -382,6 +350,32 @@ final class ChallengeControllerTest extends WebTestCase{
 
         $this->assertIsArray($responseData);
         $this->assertNotEmpty($responseData);
+    }
+
+    protected function setUp(): void
+    {
+        $this->client = ChallengeControllerTest::createClient();
+        $this->entityManager = ChallengeControllerTest::getContainer()->get(EntityManagerInterface::class);
+        $this->passwordHasher = ChallengeControllerTest::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $this->entityManager->createQuery('DELETE FROM App\Entity\User')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge')->execute();
+        $user = (new User())
+            ->setUsername('user')
+            ->setEmail('user@user')
+            ->setRoles(['ROLE_USER']);
+        $user->setPassword($this->passwordHasher->hashPassword($user, 'password'));
+        $this->entityManager->persist($user);
+
+        $admin = (new User())
+            ->setUsername('admin')
+            ->setEmail('admin@admin')
+            ->setRoles(['ROLE_ADMIN']);
+        $admin->setPassword($this->passwordHasher->hashPassword($admin, 'password'));
+        $this->entityManager->persist($admin);
+
+
+        $this->entityManager->flush();
     }
 
 }

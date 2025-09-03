@@ -10,7 +10,8 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-final class UserControllerTest extends WebTestCase{
+final class UserControllerTest extends WebTestCase
+{
 
     private EntityManagerInterface $entityManager;
     private UserPasswordHasherInterface $passwordHasher;
@@ -42,40 +43,6 @@ final class UserControllerTest extends WebTestCase{
         parent::tearDown();
     }
 
-    private function createUser(string $email, string $password, array $roles = ['ROLE_USER']): User
-    {
-        $user = new User();
-        $user->setEmail($email);
-        $user->setUsername(explode('@', $email)[0]);
-        $user->setRoles($roles);
-        $user->setPassword($this->passwordHasher->hashPassword($user, $password));
-
-        $this->entityManager->persist($user);
-        $this->entityManager->flush();
-
-        return $user;
-    }
-
-    private function getJwtToken(string $username, string $password): string
-    {
-        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
-            'username' => $username,
-            'password' => $password
-        ]));
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        return $response['token'] ?? '';
-    }
-
-    private function deleteUser(User $user): void
-    {
-        $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $user->getUsername()]);
-
-        $this->entityManager->remove($user);
-        $this->entityManager->flush();
-    }
-
     public function testCreateUserSuccessfully(): void
     {
         $userRepository = UserControllerTest::getContainer()->get(UserRepository::class);
@@ -103,6 +70,14 @@ final class UserControllerTest extends WebTestCase{
         $this->assertNotEquals('password123', $user->getPassword(), 'Le mot de passe est bien hashé.');
 
         $this->deleteUser($user);
+    }
+
+    private function deleteUser(User $user): void
+    {
+        $user = $this->entityManager->getRepository(User::class)->findOneBy(['username' => $user->getUsername()]);
+
+        $this->entityManager->remove($user);
+        $this->entityManager->flush();
     }
 
     public function testCreateUserWithInvalidData(): void
@@ -159,6 +134,32 @@ final class UserControllerTest extends WebTestCase{
         $this->entityManager->flush();
     }
 
+    private function createUser(string $email, string $password, array $roles = ['ROLE_USER']): User
+    {
+        $user = new User();
+        $user->setEmail($email);
+        $user->setUsername(explode('@', $email)[0]);
+        $user->setRoles($roles);
+        $user->setPassword($this->passwordHasher->hashPassword($user, $password));
+
+        $this->entityManager->persist($user);
+        $this->entityManager->flush();
+
+        return $user;
+    }
+
+    private function getJwtToken(string $username, string $password): string
+    {
+        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'username' => $username,
+            'password' => $password
+        ]));
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        return $response['token'] ?? '';
+    }
+
     public function testUserCannotUpdateAnotherUser(): void
     {
         $user1 = $this->createUser('userone@example.com', 'password');
@@ -197,7 +198,6 @@ final class UserControllerTest extends WebTestCase{
         $this->deleteUser($admin);
     }
 
-
     public function testDeleteUserAsAdmin(): void
     {
         $userToDelete = $this->createUser('todelete@example.com', 'test');
@@ -206,7 +206,7 @@ final class UserControllerTest extends WebTestCase{
         $adminUser = $this->createUser('admin@example.com', 'admin', ["ROLE_ADMIN"]);
         $jwtToken = $this->getJwtToken('admin', 'admin');
         $this->assertNotEmpty($jwtToken);
-        $this->client->request('DELETE', "/api/user/$userToDeleteId", [],[],
+        $this->client->request('DELETE', "/api/user/$userToDeleteId", [], [],
             ['HTTP_Authorization' => "Bearer $jwtToken"]
         );
 
@@ -375,4 +375,6 @@ final class UserControllerTest extends WebTestCase{
         $this->assertJson($this->client->getResponse()->getContent());
         $this->deleteUser($user);
     }
+
+
 }

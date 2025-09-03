@@ -3,28 +3,36 @@
 namespace App\Controller;
 
 use App\Interface\RssFetcherInterface;
+use DateTime;
+use DateTimeInterface;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Cache\CacheInterface;
 use Symfony\Contracts\Cache\ItemInterface;
+use function is_array;
 
 final class EcoNewsController extends AbstractController
 {
+    /**
+     * @throws InvalidArgumentException
+     */
     #[Route('/api/eco-news', name: 'api_eco_news', methods: ['GET'])]
     public function __invoke(
-        Request $request,
+        Request             $request,
         RssFetcherInterface $rss,
-        CacheInterface $cache
-    ): JsonResponse {
+        CacheInterface      $cache
+    ): JsonResponse
+    {
 
-        $page    = max(1, (int) $request->query->get('page', 1));
-        $perPage = min(100, max(1, (int) $request->query->get('per_page', 20)));
-        $q       = trim((string) $request->query->get('q', ''));                // recherche plein texte
-        $sort    = (string) $request->query->get('sort', 'date');              // date|title|source
-        $order   = strtolower((string) $request->query->get('order', 'desc')) === 'asc' ? 'asc' : 'desc';
-        $sourcesFilter = array_values(array_filter(array_map('trim', explode(',', (string) $request->query->get('sources', '')))));
+        $page = max(1, (int)$request->query->get('page', 1));
+        $perPage = min(100, max(1, (int)$request->query->get('per_page', 20)));
+        $q = trim((string)$request->query->get('q', ''));
+        $sort = (string)$request->query->get('sort', 'date');
+        $order = strtolower((string)$request->query->get('order', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $sourcesFilter = array_values(array_filter(array_map('trim', explode(',', (string)$request->query->get('sources', '')))));
 
 
         $sourcesPath = $this->getParameter('app.eco_news_sources_path')
@@ -36,26 +44,44 @@ final class EcoNewsController extends AbstractController
 
         $decoded = json_decode($json, true);
         $feeds = $decoded['feeds'] ?? [];
-        if (!\is_array($feeds) || empty($feeds)) {
+        if (!is_array($feeds) || empty($feeds)) {
             return $this->json(['error' => 'Aucune source RSS valide trouvée dans le JSON.'], 500);
         }
 
         $fileMtime = @filemtime($sourcesPath) ?: time();
 
+        $feedsNorm = $feeds;
+        if (is_array($feedsNorm)) {
+            sort($feedsNorm);
+            $feedsNorm = array_values($feedsNorm);
+        }
+
+        $sourcesNorm = $sourcesFilter;
+        if (is_array($sourcesNorm)) {
+            sort($sourcesNorm);
+            $sourcesNorm = array_values($sourcesNorm);
+        }
+
+        $payloadArray = [
+            'feeds' => $feedsNorm,
+            'q' => $q,
+            'sort' => $sort,
+            'order' => $order,
+            'sources' => $sourcesNorm,
+            'mtime' => (int)$fileMtime,
+        ];
+
+        $payloadJson = json_encode($payloadArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $secret = $_ENV['APP_SECRET'] ?? ($this->getParameter('kernel.secret') ?? 'fallback-secret');
+        $digest = hash_hmac('sha256', $payloadJson, (string)$secret);
 
         $cacheKey = sprintf(
-            'eco_news_v1_%s_%s_%s_%s',
-            md5(json_encode([
-                'feeds'   => $feeds,
-                'q'       => $q,
-                'sort'    => $sort,
-                'order'   => $order,
-                'sources' => $sourcesFilter,
-                'mtime'   => $fileMtime,
-            ], JSON_UNESCAPED_UNICODE)),
-            $page,
-            $perPage,
-            (int)($request->query->get('nocache', 0)) // simple bypass si besoin
+            'eco_news_v1_%s_%d_%d_%d',
+            substr($digest, 0, 32),
+            (int)$page,
+            (int)$perPage,
+            (int)$request->query->get('nocache', 0)
         );
 
         $payload = $cache->get($cacheKey, function (ItemInterface $item) use (
@@ -67,7 +93,7 @@ final class EcoNewsController extends AbstractController
 
 
             if (!empty($sourcesFilter)) {
-                $items = array_filter($items, function(array $it) use ($sourcesFilter) {
+                $items = array_filter($items, function (array $it) use ($sourcesFilter) {
                     $src = strtolower((string)($it['source'] ?? ''));
                     foreach ($sourcesFilter as $f) {
                         $f = strtolower($f);
@@ -95,21 +121,21 @@ final class EcoNewsController extends AbstractController
 
             if ($q !== '') {
                 $needle = mb_strtolower($q);
-                $items = array_filter($items, function(array $it) use ($needle) {
+                $items = array_filter($items, function (array $it) use ($needle) {
                     $hay = mb_strtolower(trim(($it['title'] ?? '') . ' ' . ($it['description'] ?? '')));
-                    return $needle === '' ? true : (mb_strpos($hay, $needle) !== false);
+                    return $needle === '' || mb_strpos($hay, $needle) !== false;
                 });
             }
 
-            $normalizeDate = function($v): int {
-                if ($v instanceof \DateTimeInterface) return (int)$v->getTimestamp();
+            $normalizeDate = function ($v): int {
+                if ($v instanceof DateTimeInterface) return (int)$v->getTimestamp();
                 if (is_numeric($v)) return (int)$v;
                 $ts = $v ? strtotime((string)$v) : false;
                 return $ts ? (int)$ts : 0;
             };
 
 
-            usort($items, function(array $a, array $b) use ($sort, $order, $normalizeDate) {
+            usort($items, function (array $a, array $b) use ($sort, $order, $normalizeDate) {
                 $dir = $order === 'asc' ? 1 : -1;
                 switch ($sort) {
                     case 'title':
@@ -123,41 +149,41 @@ final class EcoNewsController extends AbstractController
             });
 
 
-            $maxSameSource = (int) $request->query->get('max_same_source', 1);
-            if ($sort === 'date') { // on ne "mélange" que si on trie par date
+            $maxSameSource = (int)$request->query->get('max_same_source', 1);
+            if ($sort === 'date') {
                 $items = $this->antiClumpBySource($items, max(1, $maxSameSource));
             }
 
 
-            $total  = count($items);
+            $total = count($items);
             $offset = ($page - 1) * $perPage;
-            $paged  = array_slice(array_values($items), $offset, $perPage);
+            $paged = array_slice(array_values($items), $offset, $perPage);
 
 
             return [
-                'data' => array_map(function(array $it) {
+                'data' => array_map(function (array $it) {
                     return [
-                        'source'       => (string)($it['source'] ?? ''),
-                        'title'        => (string)($it['title'] ?? ''),
-                        'link'         => (string)($it['link'] ?? ''),
-                        'description'  => isset($it['description']) ? (string)$it['description'] : null,
-                        'image_url'    => isset($it['image_url']) ? (string)$it['image_url'] : null,
+                        'source' => (string)($it['source'] ?? ''),
+                        'title' => (string)($it['title'] ?? ''),
+                        'link' => (string)($it['link'] ?? ''),
+                        'description' => isset($it['description']) ? (string)$it['description'] : null,
+                        'image_url' => isset($it['image_url']) ? (string)$it['image_url'] : null,
                         'published_at' => is_scalar($it['published_at'] ?? null)
                             ? (string)$it['published_at']
-                            : (($it['published_at'] ?? null) instanceof \DateTimeInterface
-                                ? $it['published_at']->format(\DateTime::ATOM)
+                            : (($it['published_at'] ?? null) instanceof DateTimeInterface
+                                ? $it['published_at']->format(DateTime::ATOM)
                                 : null),
                     ];
                 }, $paged),
                 'meta' => [
-                    'page'       => $page,
-                    'per_page'   => $perPage,
-                    'total'      => $total,
-                    'page_count' => (int) ceil(max(1, $total) / $perPage),
-                    'sort'       => $sort,
-                    'order'      => $order,
-                    'q'          => $q,
-                    'sources'    => $sourcesFilter,
+                    'page' => $page,
+                    'per_page' => $perPage,
+                    'total' => $total,
+                    'page_count' => (int)ceil(max(1, $total) / $perPage),
+                    'sort' => $sort,
+                    'order' => $order,
+                    'q' => $q,
+                    'sources' => $sourcesFilter,
                 ],
             ];
         });
@@ -201,23 +227,22 @@ final class EcoNewsController extends AbstractController
             $swapIdx = -1;
             for ($j = $i + 1; $j < $n; $j++) {
                 $s2 = strtolower((string)($items[$j]['source'] ?? ''));
-                if ($s2 !== $runSource) { $swapIdx = $j; break; }
+                if ($s2 !== $runSource) {
+                    $swapIdx = $j;
+                    break;
+                }
             }
 
             if ($swapIdx === -1) {
-                // Rien à faire, toutes les suivantes sont la même source
-                // On stoppe : la passe a fait le mieux possible.
                 break;
             }
 
-            // On remonte l'élément trouvé à la position courante $i
             $tmp = $items[$swapIdx];
             for ($k = $swapIdx; $k > $i; $k--) {
                 $items[$k] = $items[$k - 1];
             }
             $items[$i] = $tmp;
 
-            // On redémarre le run avec la nouvelle source à la position i
             $runSource = strtolower((string)($items[$i]['source'] ?? ''));
             $runLen = 1;
         }

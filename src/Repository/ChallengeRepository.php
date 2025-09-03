@@ -37,7 +37,7 @@ class ChallengeRepository extends ServiceEntityRepository
 
             if (!empty($enumCategories)) {
                 $qb->andWhere('c.category IN (:categories)')
-                   ->setParameter('categories', $enumCategories);
+                    ->setParameter('categories', $enumCategories);
             }
         }
 

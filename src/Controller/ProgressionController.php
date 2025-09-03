@@ -4,29 +4,21 @@ namespace App\Controller;
 
 use App\Entity\Challenge;
 use App\Entity\Progression;
+use App\Entity\User;
 use App\Enum\ChallengeStatus;
 use App\Repository\ProgressionRepository;
 use App\Repository\UserRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use OpenApi\Attributes as OA;
-use Nelmio\ApiDocBundle\Attribute\Model;
 
 final class ProgressionController extends AbstractController
 {
-
-    private function getCurrentUserEntity(UserRepository $userRepo): ?\App\Entity\User
-    {
-        $ui = $this->getUser();
-        if (!$ui) {
-            return null;
-        }
-        return $userRepo->findOneBy(['username' => $ui->getUserIdentifier()]);
-    }
-
 
     /**
      * Start challenge
@@ -42,7 +34,8 @@ final class ProgressionController extends AbstractController
         UserRepository         $userRepo,
         EntityManagerInterface $entityManager,
         ProgressionRepository  $progressionRepo
-    ): Response {
+    ): Response
+    {
         $user = $this->getCurrentUserEntity($userRepo);
 
         if (!$user) {
@@ -67,7 +60,7 @@ final class ProgressionController extends AbstractController
         $progression->setUser($user);
         $progression->setChallenge($challenge);
         $progression->setStatus(ChallengeStatus::IN_PROGRESS);
-        $progression->setStartedAt(new \DateTimeImmutable());
+        $progression->setStartedAt(new DateTimeImmutable());
 
         $entityManager->persist($progression);
         $entityManager->flush();
@@ -75,6 +68,14 @@ final class ProgressionController extends AbstractController
         return $this->json(['message' => 'Défi commencé avec succès'], Response::HTTP_CREATED);
     }
 
+    private function getCurrentUserEntity(UserRepository $userRepo): ?User
+    {
+        $ui = $this->getUser();
+        if (!$ui) {
+            return null;
+        }
+        return $userRepo->findOneBy(['username' => $ui->getUserIdentifier()]);
+    }
 
     /**
      * Remove challenge
@@ -88,7 +89,7 @@ final class ProgressionController extends AbstractController
         Challenge              $challenge,
         EntityManagerInterface $entityManager,
         ProgressionRepository  $progressionRepo,
-        UserRepository $userRepo
+        UserRepository         $userRepo
     ): Response
     {
         $user = $this->getCurrentUserEntity($userRepo);
@@ -119,7 +120,7 @@ final class ProgressionController extends AbstractController
         Challenge              $challenge,
         EntityManagerInterface $entityManager,
         ProgressionRepository  $progressionRepo,
-        UserRepository $userRepo
+        UserRepository         $userRepo
     ): Response
     {
         $user = $this->getCurrentUserEntity($userRepo);
@@ -133,7 +134,7 @@ final class ProgressionController extends AbstractController
         }
 
         $progression->setStatus(ChallengeStatus::COMPLETED);
-        $progression->setCompletedAt(new \DateTimeImmutable());
+        $progression->setCompletedAt(new DateTimeImmutable());
         $entityManager->flush();
 
         return $this->json(['message' => 'Défi validé avec succès']);
@@ -153,7 +154,7 @@ final class ProgressionController extends AbstractController
         Request                $request,
         EntityManagerInterface $entityManager,
         ProgressionRepository  $progressionRepo,
-        UserRepository $userRepo,
+        UserRepository         $userRepo,
     ): Response
     {
         $user = $this->getCurrentUserEntity($userRepo);
@@ -183,13 +184,13 @@ final class ProgressionController extends AbstractController
                     Response::HTTP_CONFLICT
                 );
             }
-            $progression->setStartedAt($progression->getStartedAt() ?? new \DateTimeImmutable());
+            $progression->setStartedAt($progression->getStartedAt() ?? new DateTimeImmutable());
             $progression->setCompletedAt(null);
         }
 
         $progression->setStatus($newStatusEnum);
         if ($newStatusEnum === ChallengeStatus::COMPLETED) {
-            $progression->setCompletedAt(new \DateTimeImmutable());
+            $progression->setCompletedAt(new DateTimeImmutable());
         } else {
             $progression->setCompletedAt(null);
         }
@@ -243,35 +244,36 @@ final class ProgressionController extends AbstractController
     )]
     #[Route('/api/progression', name: 'progression_list', methods: ['GET'])]
     public function listUserProgression(
-        Request $request,
-        UserRepository $userRepo,
+        Request               $request,
+        UserRepository        $userRepo,
         ProgressionRepository $progressionRepo
-    ): Response {
+    ): Response
+    {
         $user = $this->getCurrentUserEntity($userRepo);
         if (!$user) {
             return $this->json(['error' => 'Non authentifié'], Response::HTTP_UNAUTHORIZED);
         }
 
         $status = $request->query->get('status');
-        $type   = $request->query->get('type');
+        $type = $request->query->get('type');
 
         $progressions = $progressionRepo->findByUserWithFilters($user, $status, $type);
 
         $data = array_map(function (Progression $progression) {
             $r = $progression->getActiveReminder();
             return [
-                'id'           => $progression->getId(),
-                'challengeId'  => $progression->getChallenge()->getId(),
-                'description'  => $progression->getChallenge()->getDescription(),
-                'name'         => $progression->getChallenge()->getName(),
-                'category'     => $progression->getChallenge()->getCategory(),
-                'status'       => $progression->getStatus()->value,
-                'startedAt'    => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
-                'completedAt'  => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
-                'reminderId'        => $r?->getId(),
-                'nextReminderUtc'   => $r?->getScheduledAtUtc()->format(DATE_ATOM),
-                'recurrence'        => $r?->getRecurrence(),
-                'timezone'          => $r?->getTimezone(),
+                'id' => $progression->getId(),
+                'challengeId' => $progression->getChallenge()->getId(),
+                'description' => $progression->getChallenge()->getDescription(),
+                'name' => $progression->getChallenge()->getName(),
+                'category' => $progression->getChallenge()->getCategory(),
+                'status' => $progression->getStatus()->value,
+                'startedAt' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
+                'completedAt' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+                'reminderId' => $r?->getId(),
+                'nextReminderUtc' => $r?->getScheduledAtUtc()->format(DATE_ATOM),
+                'recurrence' => $r?->getRecurrence(),
+                'timezone' => $r?->getTimezone(),
             ];
         }, $progressions);
 

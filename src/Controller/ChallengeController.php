@@ -13,6 +13,7 @@ use App\Service\PushSender;
 use Doctrine\ORM\EntityManagerInterface;
 use ErrorException;
 use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,7 +28,6 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
-use OpenApi\Attributes as OA;
 
 final class ChallengeController extends AbstractController
 {
@@ -52,14 +52,14 @@ final class ChallengeController extends AbstractController
     public function create(Request                $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, UrlGeneratorInterface $urlgenerator,
                            ValidatorInterface     $validator, TagAwareCacheInterface $cache,
-                           PushSender $push, PushSubscriptionRepository $pushSubscriptionRepository): JsonResponse
+                           PushSender             $push, PushSubscriptionRepository $pushSubscriptionRepository): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
 
         if (!$data) {
             return new JsonResponse(
                 ['error' => 'Missing required field. Name is required.'],
-                JsonResponse::HTTP_BAD_REQUEST);
+                Response::HTTP_BAD_REQUEST);
         }
 
         $challenge = $serializer->deserialize($request->getContent(), Challenge::class, "json");
@@ -86,7 +86,7 @@ final class ChallengeController extends AbstractController
         $payload = [
             'title' => 'Nouveau défi disponible',
             'body' => $challenge->getName(),
-            'data' => [ 'url' => $frontendBaseUrl . '/défis/' ]
+            'data' => ['url' => $frontendBaseUrl . '/défis/']
         ];
         $push->send($subs, $payload);
 
@@ -95,9 +95,8 @@ final class ChallengeController extends AbstractController
 
         $jsonChallenge = $serializer->serialize($challenge, 'json', ['groups' => "getAll"]);
         $location = $urlgenerator->generate("challenge_get", [
-                                                        "idChallenge" => $challenge->getId()
-                                                            ],
-                                            UrlGeneratorInterface::ABSOLUTE_PATH);
+            "idChallenge" => $challenge->getId()
+        ]);
         return new JsonResponse($jsonChallenge, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
@@ -118,63 +117,13 @@ final class ChallengeController extends AbstractController
                            EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
         $updatedChallenge = $serializer->deserialize($request->getContent(), Challenge::class, "json",
-                                                            [AbstractNormalizer::OBJECT_TO_POPULATE => $challenge]);
+            [AbstractNormalizer::OBJECT_TO_POPULATE => $challenge]);
         $entityManager->persist($updatedChallenge);
         $entityManager->flush();
 
         $cache->invalidateTags(["challengeCache"]);
 
         return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
-    /**
-     * Delete challenge entry
-     *
-     * @param Challenge $challenge
-     * @param EntityManagerInterface $entityManager
-     * @param TagAwareCacheInterface $cache
-     * @return JsonResponse
-     * @throws InvalidArgumentException
-     */
-    #[Route('/api/challenge/{id}', name: 'challenge_delete', methods: ['DELETE'])]
-    #[IsGranted("ROLE_ADMIN")]
-    public function delete(Challenge $challenge, EntityManagerInterface $entityManager,
-                           TagAwareCacheInterface $cache): JsonResponse
-    {
-        $entityManager->remove($challenge);
-        $entityManager->flush();
-
-        $cache->invalidateTags(["challengeCache"]);
-
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
-    }
-
-    /**
-     * Return challenge entry
-     *
-     * @param Challenge|null $challenge
-     * @param SerializerInterface $serializer
-     * @return JsonResponse
-     */
-    #[OA\Response(
-        response: 200,
-        description: "Return one challenge",
-        content: new OA\JsonContent(
-            type: "array",
-            items: new OA\Items(ref: new Model(type: Challenge::class))
-        )
-    )]
-    #[Route('/api/challenge/{idChallenge}', name: 'challenge_get', methods: ['GET'])]
-    public function get(#[MapEntity(mapping: ['idChallenge' => 'id'])] ?Challenge $challenge,
-                        SerializerInterface $serializer): JsonResponse
-    {
-        if (!$challenge) {
-            return new JsonResponse(['message' => 'Challenge not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        $jsonChallenge = $serializer->serialize($challenge, 'json', ['groups' => "getAll"]);
-
-        return new JsonResponse($jsonChallenge, 200, [], true);
     }
 
     /**
@@ -220,10 +169,9 @@ final class ChallengeController extends AbstractController
 
         $userProgressions = $progressionRepo->findBy(['user' => $user]);
 
-        $activeStatuses = [ChallengeStatus::IN_PROGRESS];
-
         $challengeIdsWithActiveProgression = array_unique(array_filter(array_map(
-            function (Progression $p) use ($activeStatuses) {
+            function (Progression $p) {
+                $activeStatuses = [ChallengeStatus::IN_PROGRESS];
                 if (!in_array($p->getStatus(), $activeStatuses, true)) {
                     return null;
                 }
@@ -243,6 +191,56 @@ final class ChallengeController extends AbstractController
         }, is_array($challenges) ? $challenges : iterator_to_array($challenges));
 
         return new JsonResponse($data, 200);
+    }
+
+    /**
+     * Return challenge entry
+     *
+     * @param Challenge|null $challenge
+     * @param SerializerInterface $serializer
+     * @return JsonResponse
+     */
+    #[OA\Response(
+        response: 200,
+        description: "Return one challenge",
+        content: new OA\JsonContent(
+            type: "array",
+            items: new OA\Items(ref: new Model(type: Challenge::class))
+        )
+    )]
+    #[Route('/api/challenge/{idChallenge}', name: 'challenge_get', methods: ['GET'])]
+    public function get(#[MapEntity(mapping: ['idChallenge' => 'id'])] ?Challenge $challenge,
+                        SerializerInterface                                       $serializer): JsonResponse
+    {
+        if (!$challenge) {
+            return new JsonResponse(['message' => 'Challenge not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $jsonChallenge = $serializer->serialize($challenge, 'json', ['groups' => "getAll"]);
+
+        return new JsonResponse($jsonChallenge, 200, [], true);
+    }
+
+    /**
+     * Delete challenge entry
+     *
+     * @param Challenge $challenge
+     * @param EntityManagerInterface $entityManager
+     * @param TagAwareCacheInterface $cache
+     * @return JsonResponse
+     * @throws InvalidArgumentException
+     */
+    #[Route('/api/challenge/{id}', name: 'challenge_delete', methods: ['DELETE'])]
+    #[IsGranted("ROLE_ADMIN")]
+    public function delete(Challenge              $challenge, EntityManagerInterface $entityManager,
+                           TagAwareCacheInterface $cache): JsonResponse
+    {
+        $entityManager->remove($challenge);
+        $entityManager->flush();
+
+        $cache->invalidateTags(["challengeCache"]);
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 
     /**

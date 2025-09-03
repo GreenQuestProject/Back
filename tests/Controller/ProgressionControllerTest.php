@@ -7,6 +7,7 @@ use App\Entity\Progression;
 use App\Entity\User;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -20,64 +21,6 @@ final class ProgressionControllerTest extends WebTestCase
     private UserPasswordHasherInterface $passwordHasher;
     private User $user;
     private Challenge $challenge;
-
-    protected function setUp(): void
-    {
-        $this->client = self::createClient();
-        $container = static::getContainer();
-
-        $this->entityManager = $container->get(EntityManagerInterface::class);
-        $this->passwordHasher = $container->get(UserPasswordHasherInterface::class);
-
-        // Nettoyage
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Progression p')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\User u')->execute();
-        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge c')->execute();
-
-        // User
-        $this->user = (new User())
-            ->setUsername('user')
-            ->setEmail('user@user')
-            ->setRoles(['ROLE_USER']);
-        $this->user->setPassword($this->passwordHasher->hashPassword($this->user, 'password'));
-        $this->entityManager->persist($this->user);
-
-        $this->challenge = (new Challenge())
-            ->setName('test')
-            ->setCategory(ChallengeCategory::NONE)
-            ->setDescription('A cool description');
-
-        $this->entityManager->persist($this->challenge);
-
-        $this->entityManager->flush();
-    }
-
-    private function getJwtToken(string $username, string $password): string
-    {
-        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
-            'username' => $username,
-            'password' => $password
-        ]));
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
-
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-
-        return $response['token'] ?? '';
-    }
-
-    private function createProgression(User $user, ?Challenge $challenge = null, ChallengeStatus $status = ChallengeStatus::PENDING): Progression
-    {
-        $progression = (new Progression())
-            ->setUser($user)
-            ->setChallenge($challenge ?? $this->challenge)
-            ->setStatus($status)
-            ->setStartedAt(new \DateTimeImmutable());
-
-        $this->entityManager->persist($progression);
-        $this->entityManager->flush();
-
-        return $progression;
-    }
 
     public function testStartChallengeUnauthenticated(): void
     {
@@ -117,6 +60,19 @@ final class ProgressionControllerTest extends WebTestCase
         $this->assertEquals('Défi commencé avec succès', $response['message']);
     }
 
+    private function getJwtToken(string $username, string $password): string
+    {
+        $this->client->request('POST', '/api/login', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
+            'username' => $username,
+            'password' => $password
+        ]));
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK);
+
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+
+        return $response['token'] ?? '';
+    }
+
     public function testStartAlreadyStartedChallenge(): void
     {
         $this->createProgression($this->user, $this->challenge, ChallengeStatus::IN_PROGRESS);
@@ -137,6 +93,20 @@ final class ProgressionControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_CONFLICT);
         $response = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertEquals('Vous avez déjà ce défi en cours. Terminez-le avant d’en recommencer un.', $response['message']);
+    }
+
+    private function createProgression(User $user, ?Challenge $challenge = null, ChallengeStatus $status = ChallengeStatus::PENDING): Progression
+    {
+        $progression = (new Progression())
+            ->setUser($user)
+            ->setChallenge($challenge ?? $this->challenge)
+            ->setStatus($status)
+            ->setStartedAt(new DateTimeImmutable());
+
+        $this->entityManager->persist($progression);
+        $this->entityManager->flush();
+
+        return $progression;
     }
 
     public function testRemoveChallenge(): void
@@ -359,18 +329,18 @@ final class ProgressionControllerTest extends WebTestCase
         $last = end($data);
 
         $expected = [
-            'id'               => $progression->getId(),
-            'challengeId'      => $this->challenge->getId(),
-            'description'      => $this->challenge->getDescription(),
-            'name'             => $this->challenge->getName(),
-            'category'         => $this->challenge->getCategory()->value,
-            'status'           => $progression->getStatus()->value,
-            'startedAt'        => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
-            'completedAt'      => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
-            'reminderId'       => null,
-            'nextReminderUtc'  => null,
-            'recurrence'       => null,
-            'timezone'         => null,
+            'id' => $progression->getId(),
+            'challengeId' => $this->challenge->getId(),
+            'description' => $this->challenge->getDescription(),
+            'name' => $this->challenge->getName(),
+            'category' => $this->challenge->getCategory()->value,
+            'status' => $progression->getStatus()->value,
+            'startedAt' => $progression->getStartedAt()?->format('Y-m-d H:i:s'),
+            'completedAt' => $progression->getCompletedAt()?->format('Y-m-d H:i:s'),
+            'reminderId' => null,
+            'nextReminderUtc' => null,
+            'recurrence' => null,
+            'timezone' => null,
         ];
 
         $this->assertSame($expected, $last);
@@ -415,5 +385,34 @@ final class ProgressionControllerTest extends WebTestCase
 
         $existing = $this->entityManager->getRepository(Progression::class)->find($existing->getId());
         $this->assertEquals(ChallengeStatus::IN_PROGRESS, $existing->getStatus());
+    }
+
+    protected function setUp(): void
+    {
+        $this->client = self::createClient();
+        $container = static::getContainer();
+
+        $this->entityManager = $container->get(EntityManagerInterface::class);
+        $this->passwordHasher = $container->get(UserPasswordHasherInterface::class);
+
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Progression p')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\User u')->execute();
+        $this->entityManager->createQuery('DELETE FROM App\Entity\Challenge c')->execute();
+
+        $this->user = (new User())
+            ->setUsername('user')
+            ->setEmail('user@user')
+            ->setRoles(['ROLE_USER']);
+        $this->user->setPassword($this->passwordHasher->hashPassword($this->user, 'password'));
+        $this->entityManager->persist($this->user);
+
+        $this->challenge = (new Challenge())
+            ->setName('test')
+            ->setCategory(ChallengeCategory::NONE)
+            ->setDescription('A cool description');
+
+        $this->entityManager->persist($this->challenge);
+
+        $this->entityManager->flush();
     }
 }

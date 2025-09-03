@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\ReminderRepository;
+use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ReminderRepository::class)]
@@ -14,13 +15,13 @@ class Reminder
     private ?int $id = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
-    private ?\DateTimeImmutable $scheduledAtUtc = null;
+    private ?DateTimeImmutable $scheduledAtUtc = null;
 
     #[ORM\Column(length: 16)]
-    private ?string $recurrence = 'NONE'; // NONE|DAILY|WEEKLY
+    private ?string $recurrence = 'NONE';
 
     #[ORM\Column(length: 64)]
-    private ?string $timezone = null; // ex: Europe/Paris
+    private ?string $timezone = null;
 
     #[ORM\Column]
     private ?bool $active = true;
@@ -34,12 +35,12 @@ class Reminder
         return $this->id;
     }
 
-    public function getScheduledAtUtc(): ?\DateTimeImmutable
+    public function getScheduledAtUtc(): ?DateTimeImmutable
     {
         return $this->scheduledAtUtc;
     }
 
-    public function setScheduledAtUtc(\DateTimeImmutable $scheduledAtUtc): static
+    public function setScheduledAtUtc(DateTimeImmutable $scheduledAtUtc): static
     {
         $this->scheduledAtUtc = $scheduledAtUtc;
 

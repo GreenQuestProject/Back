@@ -10,6 +10,7 @@ use App\Enum\ChallengeStatus;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Bundle\FixturesBundle\FixtureGroupInterface;
 use Doctrine\Persistence\ObjectManager;
+use Exception;
 use Faker\Factory;
 use Faker\Generator;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -19,15 +20,20 @@ use Symfony\Component\Yaml\Yaml;
 class AppFixturesTest extends Fixture implements FixtureGroupInterface
 {
     private Generator $faker;
+
     public function __construct(
         private UserPasswordHasherInterface $hasher,
-        private KernelInterface $kernel
-    ) {
+        private KernelInterface             $kernel
+    )
+    {
         $this->faker = Factory::create('fr_FR');
         // $this->faker->seed(1234); // décommenter si tu veux des données reproductibles
     }
 
-
+    public static function getGroups(): array
+    {
+        return ['test'];
+    }
 
     public function load(ObjectManager $manager): void
     {
@@ -58,15 +64,15 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
 
         // --- Lecture YAML ---
         $path = $this->kernel->getProjectDir() . '/fixtures/challenges.fr.yaml';
-        $cfg  = Yaml::parseFile($path);
+        $cfg = Yaml::parseFile($path);
 
-        $counts        = $cfg['counts'] ?? [];
-        $templatesByCat= $cfg['categories'] ?? [];
-        $weights       = $cfg['status_weights'] ?? [
-            'pending'     => 30,
+        $counts = $cfg['counts'] ?? [];
+        $templatesByCat = $cfg['categories'] ?? [];
+        $weights = $cfg['status_weights'] ?? [
+            'pending' => 30,
             'in_progress' => 35,
-            'completed'   => 25,
-            'failed'      => 10,
+            'completed' => 25,
+            'failed' => 10,
         ];
 
         // --- Génération des défis ---
@@ -107,7 +113,7 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
                 $p->setChallenge($challenge);
 
                 $statusKey = $this->pickWeighted($weights);
-                $status    = ChallengeStatus::from($statusKey);
+                $status = ChallengeStatus::from($statusKey);
                 $p->setStatus($status);
 
                 switch ($status) {
@@ -119,7 +125,7 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
                         break;
                     case ChallengeStatus::COMPLETED:
                         $started = $this->faker->dateTimeBetween('-45 days', '-15 days');
-                        $ended   = $this->faker->dateTimeBetween($started, 'now');
+                        $ended = $this->faker->dateTimeBetween($started, 'now');
                         $p->setStartedAt($started);
                         $p->setCompletedAt($ended);
                         break;
@@ -136,45 +142,45 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
         $manager->flush();
     }
 
-    /** Placeholders -> valeurs (ex: {days}) */
-    private function fill(string $s, array $vars): string
-    {
-        foreach ($vars as $k => $v) {
-            $s = str_replace('{'.$k.'}', (string)$v, $s);
-        }
-        return $s;
-    }
-
     /** Variables pour remplir les templates YAML */
     private function vars(): array
     {
         return [
-            'days'     => $this->faker->randomElement([3,5,7,10,14]),
-            'km'       => $this->faker->numberBetween(2, 15),
-            'co2'      => $this->faker->randomFloat(1, 0.3, 6.0),
-            'ideas'    => $this->faker->numberBetween(3, 8),
-            'count'    => $this->faker->numberBetween(2, 6),
-            'minutes'  => $this->faker->numberBetween(10, 40),
-            'grams'    => $this->faker->numberBetween(200, 800),
+            'days' => $this->faker->randomElement([3, 5, 7, 10, 14]),
+            'km' => $this->faker->numberBetween(2, 15),
+            'co2' => $this->faker->randomFloat(1, 0.3, 6.0),
+            'ideas' => $this->faker->numberBetween(3, 8),
+            'count' => $this->faker->numberBetween(2, 6),
+            'minutes' => $this->faker->numberBetween(10, 40),
+            'grams' => $this->faker->numberBetween(200, 800),
             'distance' => $this->faker->numberBetween(50, 800),
-            'steps'    => $this->faker->randomElement([6000, 8000, 10000, 12000]),
-            'break'    => $this->faker->randomElement([5, 7, 10]),
-            'liters'   => $this->faker->randomElement([1.5, 2.0, 2.5]),
-            'hours'    => $this->faker->randomElement([1, 2, 3]),
-            'bags'     => $this->faker->numberBetween(1, 6),
-            'items'    => $this->faker->numberBetween(5, 20),
-            'people'   => $this->faker->numberBetween(3, 12),
-            'books'    => $this->faker->numberBetween(1, 3),
-            'sentences'=> $this->faker->numberBetween(3, 6),
-            'actions'  => $this->faker->numberBetween(5, 12),
-            'weeks'    => $this->faker->randomElement([2, 3, 4]),
-            'hour'     => $this->faker->randomElement([22, 23]),
-            'screen'   => $this->faker->randomElement([20, 30, 45, 60]),
+            'steps' => $this->faker->randomElement([6000, 8000, 10000, 12000]),
+            'break' => $this->faker->randomElement([5, 7, 10]),
+            'liters' => $this->faker->randomElement([1.5, 2.0, 2.5]),
+            'hours' => $this->faker->randomElement([1, 2, 3]),
+            'bags' => $this->faker->numberBetween(1, 6),
+            'items' => $this->faker->numberBetween(5, 20),
+            'people' => $this->faker->numberBetween(3, 12),
+            'books' => $this->faker->numberBetween(1, 3),
+            'sentences' => $this->faker->numberBetween(3, 6),
+            'actions' => $this->faker->numberBetween(5, 12),
+            'weeks' => $this->faker->randomElement([2, 3, 4]),
+            'hour' => $this->faker->randomElement([22, 23]),
+            'screen' => $this->faker->randomElement([20, 30, 45, 60]),
         ];
     }
 
+    /** Placeholders -> valeurs (ex: {days}) */
+    private function fill(string $s, array $vars): string
+    {
+        foreach ($vars as $k => $v) {
+            $s = str_replace('{' . $k . '}', (string)$v, $s);
+        }
+        return $s;
+    }
+
     /** Choix pondéré d’une clé (ex: status)
-     * @throws \Exception
+     * @throws Exception
      */
     private function pickWeighted(array $weights): string
     {
@@ -186,10 +192,5 @@ class AppFixturesTest extends Fixture implements FixtureGroupInterface
             if ($r <= $acc) return (string)$key;
         }
         return (string)array_key_first($weights);
-    }
-
-    public static function getGroups(): array
-    {
-        return ['test'];
     }
 }

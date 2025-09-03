@@ -2,10 +2,6 @@
 
 namespace App\Tests\Controller;
 
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-
 use App\Entity\Challenge;
 use App\Entity\Progression;
 use App\Entity\Reminder;
@@ -13,9 +9,13 @@ use App\Entity\User;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use DateInterval;
+use DateTime;
 use DateTimeImmutable;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 final class ReminderControllerTest extends WebTestCase
 {
@@ -30,108 +30,8 @@ final class ReminderControllerTest extends WebTestCase
     private Progression $progression;
     private string $jwt = '';
 
-    protected function setUp(): void
-    {
-        self::ensureKernelShutdown();
-        $this->client = static::createClient();
-        $c = static::getContainer();
-
-        $this->em     = $c->get(EntityManagerInterface::class);
-        $this->hasher = $c->get(UserPasswordHasherInterface::class);
-
-        // Purge naive (retire si tu utilises DAMA/doctrine-test-bundle)
-        $this->em->createQuery('DELETE FROM App\Entity\Reminder r')->execute();
-        $this->em->createQuery('DELETE FROM App\Entity\Progression p')->execute();
-        $this->em->createQuery('DELETE FROM App\Entity\Challenge c')->execute();
-        $this->em->createQuery('DELETE FROM App\Entity\User u')->execute();
-
-        // Users (hash PW pour /api/login)
-        $this->user = (new User())
-            ->setUsername('username')
-            ->setEmail('username@example.test')
-            ->setRoles(['ROLE_USER']);
-        $this->user->setPassword($this->hasher->hashPassword($this->user, 'password'));
-        $this->em->persist($this->user);
-
-        $this->otherUser = (new User())
-            ->setUsername('other')
-            ->setEmail('other@example.test')
-            ->setRoles(['ROLE_USER']);
-        $this->otherUser->setPassword($this->hasher->hashPassword($this->otherUser, 'password'));
-        $this->em->persist($this->otherUser);
-
-        // Challenge + progression pour $this->user
-        $this->challenge = (new Challenge())
-            ->setName('Défi Reminder')
-            ->setDescription('Test reminder')
-            ->setCategory(ChallengeCategory::NONE);
-        $this->em->persist($this->challenge);
-
-        $this->progression = (new Progression())
-            ->setUser($this->user)
-            ->setChallenge($this->challenge)
-            ->setStatus(ChallengeStatus::PENDING)
-            ->setStartedAt(new \DateTime());
-        $this->em->persist($this->progression);
-
-        $this->em->flush();
-
-        // Auth JWT
-        $this->jwt = $this->getJwtToken('username', 'password');
-        self::assertNotSame('', $this->jwt, 'Le token JWT ne doit pas être vide');
-    }
-
-    private function getJwtToken(string $username, string $password): string
-    {
-        $this->client->request(
-            'POST',
-            '/api/login',
-            server: ['CONTENT_TYPE' => 'application/json'],
-            content: json_encode(['username' => $username, 'password' => $password], JSON_THROW_ON_ERROR)
-        );
-
-        $this->assertResponseStatusCodeSame(Response::HTTP_OK, 'Login JWT doit retourner 200');
-        $response = json_decode($this->client->getResponse()->getContent(), true);
-        $this->assertIsArray($response);
-        $this->assertArrayHasKey('token', $response);
-
-        return $response['token'];
-    }
-
-    private function authHeaders(array $extra = []): array
-    {
-        return array_merge([
-            'HTTP_AUTHORIZATION' => 'Bearer ' . $this->jwt,
-        ], $extra);
-    }
-
-    private function createReminder(
-        Progression $p,
-        DateTimeImmutable $whenUtc,
-        string $recurrence = 'NONE',
-        string $tz = 'Europe/Paris',
-        bool $active = true
-    ): Reminder {
-        $r = (new Reminder())
-            ->setProgression($p)
-            ->setScheduledAtUtc($whenUtc)
-            ->setRecurrence($recurrence)
-            ->setTimezone($tz)
-            ->setActive($active);
-        $this->em->persist($r);
-        $this->em->flush();
-        return $r;
-    }
-
-    private function reloadReminder(int $id): Reminder
-    {
-        $this->em->clear();
-        return $this->em->getRepository(Reminder::class)->find($id);
-    }
-
     public function testCreateReminderSuccess(): void
     {
-        // Date en hiver pour éviter DST (Paris UTC+1)
         $scheduledLocal = '2025-01-15T10:00:00';
         $timezone = 'Europe/Paris';
 
@@ -141,9 +41,9 @@ final class ReminderControllerTest extends WebTestCase
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => $this->progression->getId(),
-                'scheduledAt'   => $scheduledLocal,
-                'timezone'      => $timezone,
-                'recurrence'    => 'DAILY',
+                'scheduledAt' => $scheduledLocal,
+                'timezone' => $timezone,
+                'recurrence' => 'DAILY',
             ], JSON_THROW_ON_ERROR)
         );
 
@@ -158,45 +58,48 @@ final class ReminderControllerTest extends WebTestCase
         $this->assertSame('DAILY', $saved->getRecurrence());
         $this->assertSame('Europe/Paris', $saved->getTimezone());
         $this->assertTrue($saved->isActive());
-        // 10:00 Paris (UTC+1) -> 09:00 UTC
         $this->assertSame('2025-01-15 09:00:00', $saved->getScheduledAtUtc()->format('Y-m-d H:i:s'));
+    }
+
+    private function authHeaders(array $extra = []): array
+    {
+        return array_merge([
+            'HTTP_AUTHORIZATION' => 'Bearer ' . $this->jwt,
+        ], $extra);
     }
 
     public function testCreateReminderProgressionNotFoundOrForeign(): void
     {
-        // Progression appartenant à otherUser
         $foreignProg = (new Progression())
             ->setUser($this->otherUser)
             ->setChallenge($this->challenge)
             ->setStatus(ChallengeStatus::PENDING)
-            ->setStartedAt(new \DateTime());
+            ->setStartedAt(new DateTime());
         $this->em->persist($foreignProg);
         $this->em->flush();
 
-        // progression étrangère
         $this->client->request(
             'POST',
             '/api/reminders',
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => $foreignProg->getId(),
-                'scheduledAt'   => '2025-01-01T10:00:00',
-                'timezone'      => 'Europe/Paris',
+                'scheduledAt' => '2025-01-01T10:00:00',
+                'timezone' => 'Europe/Paris',
             ], JSON_THROW_ON_ERROR)
         );
         $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
         $resp = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertSame('Progression not found', $resp['error'] ?? null);
 
-        // id inexistant
         $this->client->request(
             'POST',
             '/api/reminders',
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => 999999,
-                'scheduledAt'   => '2025-01-01T10:00:00',
-                'timezone'      => 'Europe/Paris',
+                'scheduledAt' => '2025-01-01T10:00:00',
+                'timezone' => 'Europe/Paris',
             ], JSON_THROW_ON_ERROR)
         );
         $this->assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
@@ -204,7 +107,6 @@ final class ReminderControllerTest extends WebTestCase
 
     public function testCreateReminderDuplicateReturnsExisting(): void
     {
-        // Déjà un reminder ACTIF pour la progression
         $existing = $this->createReminder(
             $this->progression,
             new DateTimeImmutable('2025-01-01T08:00:00+00:00'),
@@ -219,15 +121,34 @@ final class ReminderControllerTest extends WebTestCase
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => $this->progression->getId(),
-                'scheduledAt'   => '2025-01-15T10:00:00',
-                'timezone'      => 'Europe/Paris',
+                'scheduledAt' => '2025-01-15T10:00:00',
+                'timezone' => 'Europe/Paris',
             ], JSON_THROW_ON_ERROR)
         );
 
-        $this->assertResponseIsSuccessful(); // 200
+        $this->assertResponseIsSuccessful();
         $resp = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertSame($existing->getId(), $resp['id'] ?? null);
         $this->assertSame('exists', $resp['status'] ?? null);
+    }
+
+    private function createReminder(
+        Progression       $p,
+        DateTimeImmutable $whenUtc,
+        string            $recurrence = 'NONE',
+        string            $tz = 'Europe/Paris',
+        bool              $active = true
+    ): Reminder
+    {
+        $r = (new Reminder())
+            ->setProgression($p)
+            ->setScheduledAtUtc($whenUtc)
+            ->setRecurrence($recurrence)
+            ->setTimezone($tz)
+            ->setActive($active);
+        $this->em->persist($r);
+        $this->em->flush();
+        return $r;
     }
 
     public function testCreateReminderInvalidTimezone(): void
@@ -238,8 +159,8 @@ final class ReminderControllerTest extends WebTestCase
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => $this->progression->getId(),
-                'scheduledAt'   => '2025-01-15T10:00:00',
-                'timezone'      => 'Invalid/Zone',
+                'scheduledAt' => '2025-01-15T10:00:00',
+                'timezone' => 'Invalid/Zone',
             ], JSON_THROW_ON_ERROR)
         );
 
@@ -256,8 +177,8 @@ final class ReminderControllerTest extends WebTestCase
             server: $this->authHeaders(['CONTENT_TYPE' => 'application/json']),
             content: json_encode([
                 'progressionId' => $this->progression->getId(),
-                'scheduledAt'   => 'not-a-date',
-                'timezone'      => 'Europe/Paris',
+                'scheduledAt' => 'not-a-date',
+                'timezone' => 'Europe/Paris',
             ], JSON_THROW_ON_ERROR)
         );
 
@@ -279,6 +200,12 @@ final class ReminderControllerTest extends WebTestCase
         $rem = $this->reloadReminder($rem->getId());
         $this->assertFalse($rem->isActive());
         $this->assertEquals($when, $rem->getScheduledAtUtc());
+    }
+
+    private function reloadReminder(int $id): Reminder
+    {
+        $this->em->clear();
+        return $this->em->getRepository(Reminder::class)->find($id);
     }
 
     public function testCompleteDailyMovesOneDay(): void
@@ -313,7 +240,7 @@ final class ReminderControllerTest extends WebTestCase
             ->setUser($this->otherUser)
             ->setChallenge($this->challenge)
             ->setStatus(ChallengeStatus::PENDING)
-            ->setStartedAt(new \DateTime());
+            ->setStartedAt(new DateTime());
         $this->em->persist($foreignProg);
         $this->em->flush();
 
@@ -349,7 +276,7 @@ final class ReminderControllerTest extends WebTestCase
             ->setUser($this->otherUser)
             ->setChallenge($this->challenge)
             ->setStatus(ChallengeStatus::PENDING)
-            ->setStartedAt(new \DateTime());
+            ->setStartedAt(new DateTime());
         $this->em->persist($foreignProg);
         $this->em->flush();
 
@@ -360,5 +287,69 @@ final class ReminderControllerTest extends WebTestCase
         $this->assertResponseStatusCodeSame(Response::HTTP_FORBIDDEN);
         $resp = json_decode($this->client->getResponse()->getContent(), true);
         $this->assertSame('Forbidden', $resp['error'] ?? null);
+    }
+
+    protected function setUp(): void
+    {
+        self::ensureKernelShutdown();
+        $this->client = static::createClient();
+        $c = static::getContainer();
+
+        $this->em = $c->get(EntityManagerInterface::class);
+        $this->hasher = $c->get(UserPasswordHasherInterface::class);
+
+        $this->em->createQuery('DELETE FROM App\Entity\Reminder r')->execute();
+        $this->em->createQuery('DELETE FROM App\Entity\Progression p')->execute();
+        $this->em->createQuery('DELETE FROM App\Entity\Challenge c')->execute();
+        $this->em->createQuery('DELETE FROM App\Entity\User u')->execute();
+
+        $this->user = (new User())
+            ->setUsername('username')
+            ->setEmail('username@example.test')
+            ->setRoles(['ROLE_USER']);
+        $this->user->setPassword($this->hasher->hashPassword($this->user, 'password'));
+        $this->em->persist($this->user);
+
+        $this->otherUser = (new User())
+            ->setUsername('other')
+            ->setEmail('other@example.test')
+            ->setRoles(['ROLE_USER']);
+        $this->otherUser->setPassword($this->hasher->hashPassword($this->otherUser, 'password'));
+        $this->em->persist($this->otherUser);
+
+        $this->challenge = (new Challenge())
+            ->setName('Défi Reminder')
+            ->setDescription('Test reminder')
+            ->setCategory(ChallengeCategory::NONE);
+        $this->em->persist($this->challenge);
+
+        $this->progression = (new Progression())
+            ->setUser($this->user)
+            ->setChallenge($this->challenge)
+            ->setStatus(ChallengeStatus::PENDING)
+            ->setStartedAt(new DateTime());
+        $this->em->persist($this->progression);
+
+        $this->em->flush();
+
+        $this->jwt = $this->getJwtToken('username', 'password');
+        self::assertNotSame('', $this->jwt, 'Le token JWT ne doit pas être vide');
+    }
+
+    private function getJwtToken(string $username, string $password): string
+    {
+        $this->client->request(
+            'POST',
+            '/api/login',
+            server: ['CONTENT_TYPE' => 'application/json'],
+            content: json_encode(['username' => $username, 'password' => $password], JSON_THROW_ON_ERROR)
+        );
+
+        $this->assertResponseStatusCodeSame(Response::HTTP_OK, 'Login JWT doit retourner 200');
+        $response = json_decode($this->client->getResponse()->getContent(), true);
+        $this->assertIsArray($response);
+        $this->assertArrayHasKey('token', $response);
+
+        return $response['token'];
     }
 }

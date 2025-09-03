@@ -3,18 +3,19 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use DateTimeImmutable;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
-#[UniqueEntity('email', message:"Cet email est déjà pris, essayez-en un autre")]
+#[UniqueEntity('email', message: "Cet email est déjà pris, essayez-en un autre")]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
@@ -23,8 +24,8 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 180)]
-    #[Assert\NotBlank(message:"L’email ne doit pas être vide")]
-    #[Assert\NotNull(message:"L’email ne doit pas être vide")]
+    #[Assert\NotBlank(message: "L’email ne doit pas être vide")]
+    #[Assert\NotNull(message: "L’email ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $email = null;
 
@@ -38,13 +39,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      * @var string The hashed password
      */
     #[ORM\Column]
-    #[Assert\NotBlank(message:"The password must not be empty")]
-    #[Assert\NotNull(message:"The password must not be empty")]
+    #[Assert\NotBlank(message: "The password must not be empty")]
+    #[Assert\NotNull(message: "The password must not be empty")]
     private ?string $password = null;
 
     #[ORM\Column(length: 255, unique: true)]
-    #[Assert\NotBlank(message:"Le mot de passe ne doit pas être vide")]
-    #[Assert\NotNull(message:"Le mot de passe ne doit pas être vide")]
+    #[Assert\NotBlank(message: "Le mot de passe ne doit pas être vide")]
+    #[Assert\NotNull(message: "Le mot de passe ne doit pas être vide")]
     #[Groups(["getAll"])]
     private ?string $username = null;
 
@@ -70,7 +71,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private Collection $badgeUnlocks;
 
     #[ORM\Column(type: 'datetime_immutable')]
-    private ?\DateTimeImmutable $createdAt = null;
+    private ?DateTimeImmutable $createdAt = null;
 
 
     public function __construct()
@@ -78,7 +79,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         $this->progressions = new ArrayCollection();
         $this->xpLedgers = new ArrayCollection();
         $this->badgeUnlocks = new ArrayCollection();
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = new DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -105,17 +106,16 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getUserIdentifier(): string
     {
-        return (string) $this->username;
+        return (string)$this->username;
     }
 
     /**
-     * @see UserInterface
      * @return list<string>
+     * @see UserInterface
      */
     public function getRoles(): array
     {
         $roles = $this->roles;
-        // guarantee every user at least has ROLE_USER
         $roles[] = 'ROLE_USER';
 
         return array_unique($roles);
@@ -188,7 +188,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function removeProgression(Progression $progression): static
     {
         if ($this->progressions->removeElement($progression)) {
-            // set the owning side to null (unless already changed)
             if ($progression->getUser() === $this) {
                 $progression->setUser(null);
             }
@@ -204,7 +203,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function setNotificationPreference(NotificationPreference $notificationPreference): static
     {
-        // set the owning side of the relation if necessary
         if ($notificationPreference->getUser() !== $this) {
             $notificationPreference->setUser($this);
         }
@@ -235,7 +233,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function removeXpLedger(XpLedger $xpLedger): static
     {
         if ($this->xpLedgers->removeElement($xpLedger)) {
-            // set the owning side to null (unless already changed)
             if ($xpLedger->getUser() === $this) {
                 $xpLedger->setUser(null);
             }
@@ -265,7 +262,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function removeBadgeUnlock(BadgeUnlock $badgeUnlock): static
     {
         if ($this->badgeUnlocks->removeElement($badgeUnlock)) {
-            // set the owning side to null (unless already changed)
             if ($badgeUnlock->getUser() === $this) {
                 $badgeUnlock->setUser(null);
             }
@@ -274,8 +270,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
-    public function setCreatedAt(\DateTimeImmutable $createdAt): static
+    public function getCreatedAt(): ?DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
         return $this;
