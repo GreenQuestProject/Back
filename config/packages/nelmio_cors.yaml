@@ -1,7 +1,7 @@
 nelmio_cors:
     defaults:
         allow_credentials: true
-        allow_origin: ['http://localhost:4200', 'https://greenquest.cloud', 'http://54.37.14.239',
+        allow_origin: ['http://localhost:4200', 'https://localhost:4200', 'https://greenquest.cloud', 'http://54.37.14.239',
                        'https://www.greenquest.cloud', 'https://staging.greenquest.cloud']
         allow_headers: ['Content-Type', 'Authorization']
         allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
@@ -11,7 +11,7 @@ nelmio_cors:
     paths:
         '^/':
             origin_regex: false
-            allow_origin: ['http://localhost:4200', 'https://greenquest.cloud', 'http://54.37.14.239',
+            allow_origin: ['http://localhost:4200', 'https://localhost:4200', 'https://greenquest.cloud', 'http://54.37.14.239',
                            'https://www.greenquest.cloud', 'https://staging.greenquest.cloud']
             allow_headers: ['Content-Type', 'Authorization']
             allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']

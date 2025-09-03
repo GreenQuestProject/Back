@@ -3,6 +3,8 @@
 namespace App\Repository;
 
 use App\Entity\User;
+use DateTimeImmutable;
+use DateTimeInterface;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
@@ -31,6 +33,25 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $user->setPassword($newHashedPassword);
         $this->getEntityManager()->persist($user);
         $this->getEntityManager()->flush();
+    }
+
+    /** @return array<string,string> uid => 'YYYY-Www' */
+    public function signupsByWeek(DateTimeImmutable $from, DateTimeImmutable $to): array
+    {
+        $rows = $this->createQueryBuilder('u')
+            ->select('u.id AS id, u.createdAt AS createdAt')
+            ->andWhere('u.createdAt BETWEEN :from AND :to')
+            ->setParameter('from', $from)
+            ->setParameter('to', $to)
+            ->getQuery()->getArrayResult();
+
+        $map = [];
+        foreach ($rows as $r) {
+            /** @var DateTimeInterface $d */
+            $d = $r['createdAt'];
+            $map[(string)$r['id']] = $d->format('o') . '-W' . $d->format('W');
+        }
+        return $map;
     }
 
 //    /**

@@ -4,13 +4,13 @@ namespace App\DataFixtures;
 
 use App\Entity\Challenge;
 use App\Entity\Progression;
+use App\Entity\User;
 use App\Enum\ChallengeCategory;
 use App\Enum\ChallengeStatus;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 use Exception;
 use Faker\Factory;
-use App\Entity\User;
 use Faker\Generator;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -28,7 +28,8 @@ class AppFixtures extends Fixture
      */
     private $userPasswordHasher;
 
-    public function __construct(UserPasswordHasherInterface $userPasswordHasher){
+    public function __construct(UserPasswordHasherInterface $userPasswordHasher)
+    {
         $this->faker = Factory::create('fr_FR');
         $this->userPasswordHasher = $userPasswordHasher;
     }
@@ -48,13 +49,13 @@ class AppFixtures extends Fixture
 
         // Authentifiés
         $users = [];
-        for ($i = 0; $i <  5; $i++) {
+        for ($i = 0; $i < 5; $i++) {
             $userUser = new User();
             $password = $this->faker->password(2, 6);
             $username = $this->faker->userName();
             $userUser->setUsername($username);
             $userUser->setRoles(["ROLE_USER"]);
-            $userUser->setEmail($username . "@". $password);
+            $userUser->setEmail($username . "@" . $password);
             $userUser->setPassword($this->userPasswordHasher->hashPassword($userUser, $password));
             $manager->persist($userUser);
             $users[] = $userUser;

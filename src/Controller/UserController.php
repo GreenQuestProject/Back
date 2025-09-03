@@ -6,6 +6,7 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Nelmio\ApiDocBundle\Attribute\Model;
+use OpenApi\Attributes as OA;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,9 +23,9 @@ use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
-use OpenApi\Attributes as OA;
 
-final class UserController extends AbstractController{
+final class UserController extends AbstractController
+{
 
     /**
      * Create new user entry
@@ -40,9 +41,9 @@ final class UserController extends AbstractController{
      * @throws InvalidArgumentException
      */
     #[Route('/api/register', name: 'user_create', methods: ['POST'])]
-    public function create(Request $request, SerializerInterface $serializer,
-                           EntityManagerInterface $entityManager, UrlGeneratorInterface $urlgenerator,
-                           ValidatorInterface $validator, TagAwareCacheInterface $cache,
+    public function create(Request                     $request, SerializerInterface $serializer,
+                           EntityManagerInterface      $entityManager, UrlGeneratorInterface $urlgenerator,
+                           ValidatorInterface          $validator, TagAwareCacheInterface $cache,
                            UserPasswordHasherInterface $passwordHasher): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
@@ -56,7 +57,7 @@ final class UserController extends AbstractController{
         $data = $request->toArray();
 
         $errors = $validator->validate($user);
-        if($errors->count() > 0){
+        if ($errors->count() > 0) {
             return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
         }
         $plaintextPassword = $data["password"];
@@ -77,8 +78,8 @@ final class UserController extends AbstractController{
 
         $cache->invalidateTags(["userCache"]);
 
-        $jsonUser = $serializer->serialize($user, 'json',  ['groups' => "getAll"]);
-        $location = $urlgenerator->generate("user_get",  ["idUser" => $user->getId()], UrlGeneratorInterface::ABSOLUTE_PATH);
+        $jsonUser = $serializer->serialize($user, 'json', ['groups' => "getAll"]);
+        $location = $urlgenerator->generate("user_get", ["idUser" => $user->getId()], UrlGeneratorInterface::ABSOLUTE_PATH);
         return new JsonResponse($jsonUser, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
@@ -92,11 +93,11 @@ final class UserController extends AbstractController{
      * @throws InvalidArgumentException
      */
     #[OA\Response(
-        response:200,
+        response: 200,
         description: "Return all users",
         content: new OA\JsonContent(
             type: "array",
-            items: new OA\Items(ref: new Model(type:User::class))
+            items: new OA\Items(ref: new Model(type: User::class))
         )
     )]
     #[Route('/api/user', name: 'user_getAll', methods: ['GET'])]
@@ -108,11 +109,12 @@ final class UserController extends AbstractController{
         $jsonUsers = $cache->get($idCache, function (ItemInterface $item) use ($repository, $serializer) {
             $item->tag("userCache");
             $users = $repository->findAll();
-            return $serializer->serialize($users, 'json',  ['groups' => "getAll"]);
+            return $serializer->serialize($users, 'json', ['groups' => "getAll"]);
         });
 
         return new JsonResponse($jsonUsers, 200, [], true);
     }
+
 
     /**
      * Return current logged user entry
@@ -122,11 +124,11 @@ final class UserController extends AbstractController{
      * @return JsonResponse
      */
     #[OA\Response(
-        response:200,
+        response: 200,
         description: "Return logged user",
         content: new OA\JsonContent(
             type: "array",
-            items: new OA\Items(ref: new Model(type:User::class))
+            items: new OA\Items(ref: new Model(type: User::class))
         )
     )]
     #[Route('/api/user/me', name: 'user_get_me', methods: ['GET'])]
@@ -151,7 +153,7 @@ final class UserController extends AbstractController{
      * @throws InvalidArgumentException
      */
     #[Route('/api/user/{id}', name: 'user_update', methods: ['PUT'])]
-    public function update(User $user, Request $request, SerializerInterface $serializer,
+    public function update(User                   $user, Request $request, SerializerInterface $serializer,
                            EntityManagerInterface $entityManager, TagAwareCacheInterface $cache): JsonResponse
     {
         $currentUser = $this->getUser();
@@ -198,11 +200,11 @@ final class UserController extends AbstractController{
      * @return JsonResponse
      */
     #[OA\Response(
-        response:200,
+        response: 200,
         description: "Return one user",
         content: new OA\JsonContent(
             type: "array",
-            items: new OA\Items(ref: new Model(type:User::class))
+            items: new OA\Items(ref: new Model(type: User::class))
         )
     )]
     #[Route('/api/user/{idUser}', name: 'user_get', methods: ['GET'])]
@@ -222,4 +224,5 @@ final class UserController extends AbstractController{
 
         return new JsonResponse($jsonUser, 200, [], true);
     }
+
 }

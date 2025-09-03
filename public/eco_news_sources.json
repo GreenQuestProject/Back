@@ -1,0 +1,8 @@
+{
+  "feeds": [
+    "https://reporterre.net/spip.php?page=backend-simple",
+    "https://www.wwf.fr/rss.xml",
+    "https://www.greenpeace.fr/feed/",
+    "https://www.climatechangenews.com/feed/"
+  ]
+}
